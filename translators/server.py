@@ -99,7 +99,7 @@ class Tse:
                 result = func(*args, **kwargs)
                 t2 = time.time()
                 cost_time = round((t2 - t1 - sleep_seconds), show_time_stat_precision)
-                sys.stderr.write(f'TimeSpent(function: {func.__name__[:-4]}): {cost_time}s\n')
+                # sys.stderr.write(f'TimeSpent(function: {func.__name__[:-4]}): {cost_time}s\n')
                 return result
             return func(*args, **kwargs)
         return _wrapper
@@ -302,14 +302,14 @@ class GuestSeverRegion(Tse):
     @property
     def get_server_region(self, if_judge_cn: bool = True) -> str:
         if self.default_region:
-            sys.stderr.write(f'Using customized region {self.default_region} server backend.\n\n')
+            # sys.stderr.write(f'Using customized region {self.default_region} server backend.\n\n')
             return ('CN' if self.default_region == 'China' else 'EN') if if_judge_cn else self.default_region
 
         _headers_fn = lambda url: self.get_headers(url, if_api=False, if_referer_for_host=True)
         try:
             try:
                 data = json.loads(requests.get(self.get_addr_url, headers=_headers_fn(self.get_addr_url)).text[9:-2])
-                sys.stderr.write(f'Using region {data.get("stateName")} server backend.\n\n')
+                # sys.stderr.write(f'Using region {data.get("stateName")} server backend.\n\n')
                 return data.get('country') if if_judge_cn else data.get("stateName")
             except requests.exceptions.Timeout:
                 ip_address = requests.get(self.get_ip_url, headers=_headers_fn(self.get_ip_url)).json()['origin']
@@ -322,7 +322,7 @@ class GuestSeverRegion(Tse):
         except:
             warnings.warn('Unable to find server backend.\n\n')
             region = input('Please input your server region need to visit:\neg: [Qatar, China, ...]\n\n')
-            sys.stderr.write(f'Using region {region} server backend.\n\n')
+            # sys.stderr.write(f'Using region {region} server backend.\n\n')
             return 'CN' if region == 'China' else 'EN'
 
 
@@ -5000,10 +5000,10 @@ class TranslatorsServer:
 
         self.example_query_text = kwargs.get('example_query_text', self.example_query_text)
 
-        sys.stderr.write('Preacceleration-Process will take a few minutes.\n')
-        sys.stderr.write('Tips: The smaller `timeout` value, the fewer translators pass the test '
-                         'and the less time it takes to preaccelerate. However, the slow speed of '
-                         'preacceleration does not mean the slow speed of later translation.\n\n')
+        # sys.stderr.write('Preacceleration-Process will take a few minutes.\n')
+        # sys.stderr.write('Tips: The smaller `timeout` value, the fewer translators pass the test '
+        #                  'and the less time it takes to preaccelerate. However, the slow speed of '
+        #                  'preacceleration does not mean the slow speed of later translation.\n\n')
 
         for i in tqdm.tqdm(range(len(self.translators_pool)), desc='Preacceleration Process', ncols=80):
             _ts = self.translators_pool[i]
@@ -5022,7 +5022,7 @@ class TranslatorsServer:
 
         test_translators_pool = kwargs.get('test_translators_pool', self.success_translators_pool)
 
-        sys.stderr.write('SpeedTest-Process will take a few seconds.\n\n')
+        # sys.stderr.write('SpeedTest-Process will take a few seconds.\n\n')
         for i in tqdm.tqdm(range(len(test_translators_pool)), desc='SpeedTest Process', ncols=80):
             _ts = test_translators_pool[i]
             try:
@@ -5033,7 +5033,7 @@ class TranslatorsServer:
 
     def preaccelerate_and_speedtest(self, timeout: Optional[float] = None, **kwargs: str) -> dict:
         result = self.preaccelerate(timeout=timeout, **kwargs)
-        sys.stderr.write('\n\n')
+        # sys.stderr.write('\n\n')
         self.speedtest()
         return result
 
