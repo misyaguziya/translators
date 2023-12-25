@@ -8,52 +8,46 @@
   <a href="https://pypi.org/project/translators"><img alt="PyPI - Python" src="https://img.shields.io/pypi/pyversions/translators.svg?color=blue"></a>
   <a href="https://pypi.org/project/translators"><img alt="PyPI - Status" src="https://img.shields.io/pypi/status/translators.svg?color=brightgreen"></a>
   <a href="https://pypi.org/project/translators"><img alt="PyPI - Wheel" src="https://img.shields.io/badge/wheel-yes-brightgreen.svg"></a>
-  <a href="https://pypi.org/project/translators"><img alt="PyPI - Downloads" src="https://static.pepy.tech/personalized-badge/translators?left_text=downloads&left_color=gray&right_color=blue"></a>
+  <a href="https://pypi.org/project/translators"><img alt="PyPI - Downloads" src="https://static.pepy.tech/personalized-badge/translators?period=total&units=international_system&left_text=downloads&left_color=grey&right_color=blue"></a>
 </p>
 
 * * *
 
-**Translators** is a library which aims to bring **free, multiple, enjoyable** translation to individuals and students in Python. 
+**Translators** is a library that aims to bring **free, multiple, enjoyable** translations to individuals and students in Python. 
 
-- [Supported Translation Services](#supported-translation-services)
-- [Installation](#installation)
-- [Getting Started](#getting-started)
-- [Supported Languages](#supported-languages)
-- [Debug Tips](#debug-tips)
-- [License](#license)
-
-## Supported Translation Services
+<details>
+<summary>Supported Translation Services</summary>
 
 | ID  | Translator                                                                        | Number of Supported Languages | Advantage                                                                                   | Service                                                                                                           | Status                          |
 | --- | --------------------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| 1   | [MyMemory](https://mymemory.translated.net)                                       | 330                           | support the most languages in the world                                                     | [Translated](https://translatedlabs.com/welcome), Italy                                                           | stable                          |
-| 2   | [Niutrans](https://niutrans.com/trans)                                            | 302                           | support the most languages in the world                                                     | [Northeastern University](http://english.neu.edu.cn/) / [Niutrans](https://github.com/NiuTrans), China            | /                               |
+| 1   | [Niutrans](https://niutrans.com/trans)                                            | 452                           | support the most languages in the world                                                     | [Northeastern University](http://english.neu.edu.cn/) / [Niutrans](https://github.com/NiuTrans), China            | /                               |
+| 2   | [MyMemory](https://mymemory.translated.net)                                       | 330                           | support the most languages in the world                                                     | [Translated](https://translatedlabs.com/welcome), Italy                                                           | stable                          |
 | 3   | [Alibaba](https://translate.alibaba.com)                                          | 221                           | support most languages, support professional field                                          | [Alibaba](https://damo.alibaba.com/about?lang=en), China                                                          | stable                          |
 | 4   | [Baidu](https://fanyi.baidu.com)                                                  | 201                           | support most languages, support professional field, support classical Chinese               | [Baidu](https://ir.baidu.com/company-overview), China                                                             | stable                          |
-| 5   | [Iciba](https://www.iciba.com/fy)                                                 | 187                           | support the most languages in the world                                                     | [Kingsoft](https://www.wps.com/about-us/) / [Xiaomi](https://www.mi.com/us/about/), China                         | stable                          |
-| 6   | [Iflytek](https://fanyi.xfyun.cn/console/trans/text)                              | 140                           | support the most languages in the world                                                     | [Iflytek](https://www.iflytek.com/en/about-us.html), China                                                        | /                               |
-| 7   | [Google](https://translate.google.com)                                            | 134                           | support more languages in the world                                                         | [Google](https://about.google/), America                                                                          | stable(offline in China inland) |
-| 8   | [VolcEngine](https://translate.volcengine.com)                                    | 122                           | support more languages in the world, support professional field                             | [ByteDance](https://www.bytedance.com/en/), China                                                                 | /                               |
-| 9   | [Lingvanex](https://lingvanex.com/demo)                                           | 112                           | support translation of different regions but the same language                              | [Lingvanex](https://lingvanex.com/about-us/), Cyprus                                                              | stable                          |
-| 10  | [Bing](https://www.bing.com/Translator)                                           | 110                           | support more languages in the world                                                         | [Microsoft](https://www.microsoft.com/en-us/about), America                                                       | stable                          |
-| 11  | [Yandex](https://translate.yandex.com)                                            | 102                           | support more languages in the world, support word to emoji                                  | [Yandex](https://yandex.com/company/), Russia                                                                     | /                               |
-| 12  | [Itranslate](https://itranslate.com/webapp)                                       | 101                           | support translation of different regions but the same language, such as en-US, en-UK, en-AU | [Itranslate](https://itranslate.com/about), Austria                                                               | stable                          |
-| 13  | [Sogou](https://fanyi.sogou.com/text)                                             | 61                            | support more languages in the world                                                         | [Tencent](https://www.tencent.com/en-us/about.html), China                                                        | stable                          |
-| 14  | [ModernMt](https://www.modernmt.com/translate)                                    | 56                            | open-source, support more languages in the world                                            | [Modernmt](https://github.com/modernmt) / [Translated](https://translatedlabs.com/welcome), Italy                 | stable                          |
-| 15  | [SysTran](https://www.systran.net/translate/)                                     | 52                            | support more languages in the world                                                         | [SysTran](https://www.systran.net/about/), France                                                                 | stable                          |
+| 5   | [ModernMt](https://www.modernmt.com/translate)                                    | 200                           | open-source, support more languages in the world                                            | [Modernmt](https://github.com/modernmt) / [Translated](https://translatedlabs.com/welcome), Italy                 | stable                          |
+| 6   | [VolcEngine](https://translate.volcengine.com)                                    | 189                           | support more languages in the world, support professional field                             | [ByteDance](https://www.bytedance.com/en/), China                                                                 | /                               |
+| 7   | [Iciba](https://www.iciba.com/fy)                                                 | 187                           | support the most languages in the world                                                     | [Kingsoft](https://www.wps.com/about-us/) / [Xiaomi](https://www.mi.com/us/about/), China                         | stable                          |
+| 8   | [Iflytek](https://fanyi.xfyun.cn/console/trans/text)                              | 137                           | support the most languages in the world                                                     | [Iflytek](https://www.iflytek.com/en/about-us.html), China                                                        | /                               |
+| 9   | [Google](https://translate.google.com)                                            | 134                           | support more languages in the world                                                         | [Google](https://about.google/), America                                                                          | stable(offline in China inland) |
+| 10  | [Bing](https://www.bing.com/Translator)                                           | 128                           | support more languages in the world                                                         | [Microsoft](https://www.microsoft.com/en-us/about), America                                                       | stable                          |
+| 11  | [Lingvanex](https://lingvanex.com/demo)                                           | 112                           | support translation of different regions but the same language                              | [Lingvanex](https://lingvanex.com/about-us/), Cyprus                                                              | stable                          |
+| 12  | [Yandex](https://translate.yandex.com)                                            | 102                           | support more languages in the world, support word to emoji                                  | [Yandex](https://yandex.com/company/), Russia                                                                     | /                               |
+| 13  | [Itranslate](https://itranslate.com/webapp)                                       | 101                           | support translation of different regions but the same language, such as en-US, en-UK, en-AU | [Itranslate](https://itranslate.com/about), Austria                                                               | stable                          |
+| 14  | [SysTran](https://www.systran.net/translate/)                                     | 52                            | support more languages in the world                                                         | [SysTran](https://www.systran.net/about/), France                                                                 | stable                          |
+| 15  | [Argos](https://libretranslate.com)                                               | 46                            | open-source                                                                                 | [Argos](https://github.com/argosopentech) / [Libre](https://github.com/LibreTranslate), America                   | stable                          |
 | 16  | [Apertium](https://www.apertium.org/)                                             | 45                            | open-source                                                                                 | [Apertium](https://github.com/apertium), Spain                                                                    | stable                          |
 | 17  | [Reverso](https://www.reverso.net/text-translation)                               | 42                            | popular on Mac and Iphone                                                                   | [Reverso](https://www.corporate-translation.reverso.com/about-us), France                                         | stable                          |
-| 18  | [CloudYi](https://www.cloudtranslation.com/#/translate)                           | 28                            | support main languages                                                                      | [Xiamen University](http://nlp.xmu.edu.cn/) / [CloudTranslation](https://www.cloudtranslation.com/#/about), China | stable                          |
-| 19  | [Deepl](https://www.deepl.com/translator)                                         | 27                            | high quality to translate but response slowly                                               | [Deepl](https://jobs.deepl.com/l/en), Germany                                                                     | stable                          |
+| 18  | [Deepl](https://www.deepl.com/translator)                                         | 30                            | high quality to translate but response slowly                                               | [Deepl](https://jobs.deepl.com/l/en), Germany                                                                     | stable                          |
+| 19  | [CloudTranslation](https://www.cloudtranslation.com/#/translate)                  | 28                            | support main languages                                                                      | [Xiamen University](http://nlp.xmu.edu.cn/) / [CloudTranslation](https://www.cloudtranslation.com/#/about), China | stable                          |
 | 20  | [QQTranSmart](https://transmart.qq.com)                                           | 22                            | support main languages                                                                      | [Tencent](https://www.tencent.com/en-us/about.html), China                                                        | stable                          |
 | 21  | [TranslateCom](https://www.translate.com/machine-translation)                     | 21                            | good at English translation                                                                 | [TranslateCom](https://www.translate.com/about-us), America                                                       | stable                          |
-| 22  | [Tilde](https://translate.tilde.com/)                                             | 21                            | good at lv, de, fr translation                                                              | [Tilde](https://tilde.com/about), Latvia                                                                          | /                               |
-| 23  | [QQFanyi](https://fanyi.qq.com)                                                   | 17                            | support main languages                                                                      | [Tencent](https://www.tencent.com/en-us/about.html), China                                                        | stable                          |
-| 24  | [Argos](https://translate.argosopentech.com)                                      | 17                            | open-source                                                                                 | [Argos](https://github.com/argosopentech) / [Libre](https://github.com/LibreTranslate), America                   | stable                          |
+| 22  | [Sogou](https://fanyi.sogou.com/text)                                             | 20                            | support more languages in the world                                                         | [Tencent](https://www.tencent.com/en-us/about.html), China                                                        | stable                          |
+| 23  | [Tilde](https://translate.tilde.com/)                                             | 20                            | good at lv, de, fr translation                                                              | [Tilde](https://tilde.com/about), Latvia                                                                          | /                               |
+| 24  | [QQFanyi](https://fanyi.qq.com)                                                   | 17                            | support main languages                                                                      | [Tencent](https://www.tencent.com/en-us/about.html), China                                                        | stable                          |
 | 25  | [TranslateMe](https://translateme.network/)                                       | 16                            | good at English translation                                                                 | [TranslateMe](https://translateme.network/our-team/) / [Neosus](https://neosus.net/about/), Lithuania             | /                               |
-| 26  | [Youdao](https://ai.youdao.com/product-fanyi-text.s)                              | 15                            | support main languages, high quality                                                        | [Netease](https://ir.netease.com/company-overview/corporate-profile), China                                       | stable                          |
-| 27  | [Papago](https://papago.naver.com)                                                | 15                            | good at Korean translation                                                                  | [Naver](https://www.navercorp.com/en/naver/company), South Korea                                                  | stable                          |
-| 28  | [Marai](https://miraitranslate.com/trial/)                                        | 15                            | good at Japanese translation                                                                | [MaraiTranslate](https://miraitranslate.com/en/company/), Japan                                                   | /                               |
+| 26  | [Papago](https://papago.naver.com)                                                | 15                            | good at Korean translation                                                                  | [Naver](https://www.navercorp.com/en/naver/company), South Korea                                                  | stable                          |
+| 27  | [Mirai](https://miraitranslate.com/trial/)                                        | 15                            | good at Japanese translation                                                                | [MiraiTranslate](https://miraitranslate.com/en/company/), Japan                                                   | /                               |
+| 28  | [Youdao](https://ai.youdao.com/product-fanyi-text.s)                              | 12                            | support main languages, high quality                                                        | [Netease](https://ir.netease.com/company-overview/corporate-profile), China                                       | stable                          |
 | 29  | [Iflyrec](https://fanyi.iflyrec.com)                                              | 12                            | good at Chinese translation                                                                 | [Iflytek](https://www.iflytek.com/en/about-us.html), China                                                        | stable                          |
 | 30  | [Yeekit](https://www.yeekit.com/site/translate)                                   | 10                            | support main languages                                                                      | [CTC](https://www.ctpc.com.cn/cms/enAboutUs.htm), China                                                           | /                               |
 | 31  | [LanguageWire](https://www.languagewire.com/en/technology/languagewire-translate) | 8                             | good at English translation                                                                 | [LanguageWire](https://www.languagewire.com/about-us), Denmark                                                    | stable                          |
@@ -63,7 +57,10 @@
 | 35  | [Mglip](http://fy.mglip.com/pc)                                                   | 3                             | good at Mongolia translation                                                                | [Inner Mongolia University](https://www.imu.edu.cn/yw/Home.htm), China                                            | stable                          |
 | 36  | [Utibet](http://mt.utibet.edu.cn/mt)                                              | 2                             | good at Tibet translation                                                                   | [Tibet University](http://www.utibet.edu.cn/), China                                                              | stable                          |
 
-## Installation
+</details>
+
+<details>
+<summary>Installation</summary>
 
 ```sh
 # PYPI
@@ -78,7 +75,10 @@ cd translators
 python setup.py install
 ```
 
-## Getting Started
+</details>
+
+<details>
+<summary>Getting Started</summary>
 
 ```python
 import translators as ts
@@ -105,14 +105,14 @@ translate_text(query_text: str, translator: str = 'bing', from_language: str = '
     :param if_use_preacceleration: bool, default False.
     :param **kwargs:
             :param is_detail_result: bool, default False.
-            :param professional_field: str, default None. Support alibaba(), baidu(), caiyun(), cloudYi(), elia(), sysTran(), youdao(), volcEngine() only.
+            :param professional_field: str, default None. Support alibaba(), baidu(), caiyun(), cloudTranslation(), elia(), sysTran(), youdao(), volcEngine() only.
             :param timeout: float, default None.
             :param proxies: dict, default None.
             :param sleep_seconds: float, default 0.
             :param update_session_after_freq: int, default 1000.
             :param update_session_after_seconds: float, default 1500.
             :param if_use_cn_host: bool, default False. Support google(), bing() only.                
-            :param reset_host_url: str, default None. Support google(), argos(), yandex() only.
+            :param reset_host_url: str, default None. Support google(), yandex() only.
             :param if_check_reset_host_url: bool, default True. Support google(), yandex() only.
             :param if_ignore_empty_query: bool, default False.
             :param limit_of_length: int, default 20000.
@@ -126,7 +126,10 @@ translate_text(query_text: str, translator: str = 'bing', from_language: str = '
 """
 ```
 
-## Supported Languages
+</details>
+
+<details>
+<summary>Supported Languages</summary>
 
 | Language             | Language of Translator | [Google](https://translate.google.com) | [Yandex](https://translate.yandex.com) | [Bing](https://www.bing.com/Translator) | [Baidu](https://fanyi.baidu.com) | [Alibaba](https://translate.alibaba.com) | [Tencent](https://fanyi.qq.com) | [Youdao](https://fanyi.youdao.com) | [Sogou](https://fanyi.sogou.com) | [Deepl](https://www.deepl.com/translator) | [Caiyun](https://fanyi.caiyunapp.com) | [Argos](https://translate.argosopentech.com) | others... |
 | -------------------- | ---------------------- | -------------------------------------- | -------------------------------------- | --------------------------------------- | -------------------------------- | ---------------------------------------- | ------------------------------- | ---------------------------------- | -------------------------------- | ----------------------------------------- | ------------------------------------- | -------------------------------------------- | --------- |
@@ -202,7 +205,8 @@ translate_text(query_text: str, translator: str = 'bing', from_language: str = '
 | emoji                | emj                    |                                        | Y                                      |                                         |                                  |                                          |                                 |                                    |                                  |                                           |                                       |                                              |           |
 | ...                  | ...                    |                                        |                                        |                                         |                                  |                                          |                                 |                                    |                                  |                                           |                                       |                                              |           |
 
-### About Chinese Language
+<details>
+<summary>About Chinese Language</summary>
 
 | Language      | Language of Translator | [Google](https://translate.google.com) | [Yandex](https://translate.yandex.com) | [Bing](https://www.bing.com/Translator) | [Baidu](https://fanyi.baidu.com) | [Alibaba](https://translate.alibaba.com) | [Tencent](https://fanyi.qq.com) | [Youdao](https://fanyi.youdao.com) | [Sogou](https://fanyi.sogou.com) | [Iciba](https://www.iciba.com/fy) | [Iflytek](https://fanyi.xfyun.cn/console/trans/text) | [Caiyun](https://fanyi.caiyunapp.com) | [Deepl](https://www.deepl.com/translator) | [Argos](https://translate.argosopentech.com) | [Itranslate](https://itranslate.com/webapp) | [Reverso](https://www.reverso.net/text-translation) | [TranslateCom](https://www.translate.com/machine-translation) | [Papago](https://papago.naver.com) | [Utibet](http://mt.utibet.edu.cn/mt) |
 | ------------- | ---------------------- | -------------------------------------- | -------------------------------------- | --------------------------------------- | -------------------------------- | ---------------------------------------- | ------------------------------- | ---------------------------------- | -------------------------------- | --------------------------------- | ---------------------------------------------------- | ------------------------------------- | ----------------------------------------- | -------------------------------------------- | ------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------- | ---------------------------------- | ------------------------------------ |
@@ -218,12 +222,16 @@ translate_text(query_text: str, translator: str = 'bing', from_language: str = '
 | Chinese(苗语)   | hmn                    |                                        |                                        |                                         |                                  |                                          |                                 |                                    |                                  |                                   |                                                      |                                       |                                           |                                              | Y                                           |                                                     |                                                               |                                    |                                      |
 | Chinese(壮语)   | zyb                    |                                        |                                        |                                         |                                  |                                          |                                 |                                    |                                  |                                   |                                                      |                                       |                                           |                                              |                                             |                                                     |                                                               |                                    |                                      |
 
-## Debug Tips
+</details>
+</details>
+
+<details>
+<summary>Debug Tips</summary>
 
 ### Linux Runtime Environment
 
 1. To support javascript runtime environment, you should [download and install Node.js](https://nodejs.org/en/download/).
-2. baidu() doesn't work on Linux without desktop.
+2. Function baidu() doesn't work on Linux without desktop.
 
 ### HttpError 4xx
 
@@ -237,6 +245,12 @@ translate_text(query_text: str, translator: str = 'bing', from_language: str = '
 1. Check whether the network is connected correctly.
 2. Check the proxy are enabled on your computer. If it is enabled, try turning it off or otherwise. 
 
-## License
+</details>
 
-[GPLv3 License](https://github.com/uliontse/translators/blob/master/LICENSE)
+<details>
+<summary>Star History</summary>
+
+[![Star History Chart](https://api.star-history.com/svg?repos=UlionTse/translators&type=Date)](https://star-history.com/#UlionTse/translators&Date)
+
+</details>
+

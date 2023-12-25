@@ -12,7 +12,7 @@ PACKAGE = "translators"
 AUTHOR = "UlionTse"
 AUTHOR_EMAIL = "uliontse@outlook.com"
 HOMEPAGE_URL = "https://github.com/uliontse/translators"
-DESCRIPTION = "Translators is a library which aims to bring free, multiple, enjoyable translation to individuals and students in Python."
+DESCRIPTION = "Translators is a library that aims to bring free, multiple, enjoyable translations to individuals and students in Python."
 LONG_DESCRIPTION = pathlib.Path('README.md').read_text(encoding='utf-8')
 VERSION_TEXT = pathlib.Path(f'{PACKAGE}/__init__.py').read_text(encoding='utf-8')
 VERSION = re.compile('^__version__\\s*=\\s*[\'"]([^\'"]*)[\'"]', re.MULTILINE).search(VERSION_TEXT).group(1)
@@ -49,7 +49,7 @@ setuptools.setup(
     ],
     keywords=[
         'translate', 'translate_text', 'translate_html',
-        'alibaba', 'apertium', 'argos', 'baidu', 'bing', 'caiyun', 'cloudYi', 'deepl', 'elia', 'google',
+        'alibaba', 'apertium', 'argos', 'baidu', 'bing', 'caiyun', 'cloudTranslation', 'deepl', 'elia', 'google',
         'iciba', 'iflytek', 'iflyrec', 'itranslate', 'judic', 'languageWire', 'lingvanex', 'mglip', 'mirai', 'modernMt',
         'myMemory', 'niutrans', 'papago', 'qqFanyi', 'qqTranSmart', 'reverso', 'sogou', 'sysTran', 'tilde', 'translateCom',
         'translateMe', 'utibet', 'volcEngine', 'yandex', 'yeekit', 'youdao',

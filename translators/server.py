@@ -1,8 +1,8 @@
 # coding=utf-8
 # author=UlionTse
 
-"""GPLv3 License
-Copyright (C) 2017-2023  UlionTse
+"""
+Copyright (C) 2017  UlionTse
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 Email: uliontse@outlook.com
 
-translators  Copyright (C) 2017-2023  UlionTse
+translators  Copyright (C) 2017  UlionTse
 This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
 This is free software, and you are welcome to redistribute it
 under certain conditions; type `show c' for details.
@@ -61,11 +61,11 @@ ApiKwargsType = Union[str, int, float, bool, dict]
 
 __all__ = [
     'translate_text', 'translate_html', 'translators_pool',
-    'alibaba', 'apertium', 'argos', 'baidu', 'bing', 'caiyun', 'cloudYi', 'deepl', 'elia', 'google',
+    'alibaba', 'apertium', 'argos', 'baidu', 'bing', 'caiyun', 'cloudTranslation', 'deepl', 'elia', 'google',
     'iciba', 'iflytek', 'iflyrec', 'itranslate', 'judic', 'languageWire', 'lingvanex', 'mglip', 'mirai', 'modernMt',
     'myMemory', 'niutrans', 'papago', 'qqFanyi', 'qqTranSmart', 'reverso', 'sogou', 'sysTran', 'tilde', 'translateCom',
     'translateMe', 'utibet', 'volcEngine', 'yandex', 'yeekit', 'youdao',
-    '_alibaba', '_apertium', '_argos', '_baidu', '_bing', '_caiyun', '_cloudYi', '_deepl', '_elia', '_google',
+    '_alibaba', '_apertium', '_argos', '_baidu', '_bing', '_caiyun', '_cloudTranslation', '_deepl', '_elia', '_google',
     '_iciba', '_iflytek', '_iflyrec', '_itranslate', '_judic', '_languageWire', '_lingvanex', '_mglip', '_mirai', '_modernMt',
     '_myMemory', '_niutrans', '_papago', '_qqFanyi', '_qqTranSmart', '_reverso', '_sogou', '_sysTran', '_tilde', '_translateCom',
     '_translateMe', '_utibet', '_volcEngine', '_yandex', '_yeekit', '_youdao',
@@ -79,10 +79,10 @@ class TranslatorError(Exception):
 class Tse:
     def __init__(self):
         self.author = 'Ulion.Tse'
-        self.begin_time = time.time()
+        self.all_begin_time = time.time()
         self.default_session_freq = int(1e3)
         self.default_session_seconds = 1.5e3
-        self.transform_en_translator_pool = ('itranslate', 'lingvanex', 'myMemory', 'apertium', 'cloudYi', 'translateMe')
+        self.transform_en_translator_pool = ('itranslate', 'lingvanex', 'myMemory', 'apertium', 'cloudTranslation', 'translateMe')
         self.auto_pool = ('auto', 'detect', 'auto-detect', 'all')
         self.zh_pool = ('zh', 'zh-CN', 'zh-cn', 'zh-CHS', 'zh-Hans', 'zh-Hans_CN', 'cn', 'chi', 'Chinese')
 
@@ -99,7 +99,7 @@ class Tse:
                 result = func(*args, **kwargs)
                 t2 = time.time()
                 cost_time = round((t2 - t1 - sleep_seconds), show_time_stat_precision)
-                # sys.stderr.write(f'TimeSpent(function: {func.__name__[:-4]}): {cost_time}s\n')
+                sys.stderr.write(f'TimeSpent(function: {func.__name__[:-4]}): {cost_time}s\n')
                 return result
             return func(*args, **kwargs)
         return _wrapper
@@ -107,6 +107,15 @@ class Tse:
     @staticmethod
     def get_timestamp() -> int:
         return int(time.time() * 1e3)
+
+    @staticmethod
+    def get_uuid() -> str:
+        _uuid = ''
+        for i in range(8):
+            _uuid += hex(int(65536 * (1 + random.random())))[2:][1:]
+            if 1 <= i <= 4:
+                _uuid += '-'
+        return _uuid
 
     @staticmethod
     def get_headers(host_url: str,
@@ -118,7 +127,7 @@ class Tse:
                     if_http_override_for_api: bool = False
                     ) -> dict:
 
-        user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36"
+        user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36'
         url_path = urllib.parse.urlparse(host_url.strip('/')).path
         host_headers = {
             'Referer' if if_referer_for_host else 'Host': host_url,
@@ -212,8 +221,11 @@ class Tse:
         @functools.wraps(func)
         def _wrapper(*args, **kwargs):
             try:
-                return func(*args, **kwargs)
-            except TranslatorError as e:
+                language_map = func(*args, **kwargs)
+                if not language_map:
+                    raise TranslatorError
+                return language_map
+            except Exception as e:
                 if kwargs.get('if_print_warning', True):
                     warnings.warn(f'GetLanguageMapError: {str(e)}.\nThe function make_temp_language_map() works.')
                 return make_temp_language_map(kwargs.get('from_language'), kwargs.get('to_language'), kwargs.get('default_from_language'))
@@ -226,12 +238,7 @@ class Tse:
 
     @staticmethod
     def check_query(func):
-        def check_query_text(query_text: str,
-                             if_ignore_empty_query: bool,
-                             if_ignore_limit_of_length: bool,
-                             limit_of_length: int
-                             ) -> str:
-
+        def check_query_text(query_text: str, if_ignore_empty_query: bool, if_ignore_limit_of_length: bool, limit_of_length: int) -> str:
             if not isinstance(query_text, str):
                 raise TranslatorError
 
@@ -249,7 +256,7 @@ class Tse:
 
         @functools.wraps(func)
         def _wrapper(*args, **kwargs):
-            if_ignore_empty_query = kwargs.get('if_ignore_empty_query', False)
+            if_ignore_empty_query = kwargs.get('if_ignore_empty_query', True)
             if_ignore_limit_of_length = kwargs.get('if_ignore_limit_of_length', False)
             limit_of_length = kwargs.get('limit_of_length', 20000)
             is_detail_result = kwargs.get('is_detail_result', False)
@@ -290,7 +297,7 @@ class Tse:
     #     return _wrapper
 
 
-class GuestSeverRegion(Tse):
+class Region(Tse):
     def __init__(self):
         super().__init__()
         self.get_addr_url = 'https://geolocation.onetrust.com/cookieconsentpub/v1/geo/location'
@@ -299,19 +306,20 @@ class GuestSeverRegion(Tse):
         self.ip_tb_add_url = 'https://ip.taobao.com/outGetIpInfo'
         self.default_region = os.environ.get('translators_default_region', None)
 
-    @property
-    def get_server_region(self, if_judge_cn: bool = True) -> str:
+    def get_region_of_server(self, if_judge_cn: bool = True, if_print_region: bool = True) -> str:
         if self.default_region:
-            # sys.stderr.write(f'Using customized region {self.default_region} server backend.\n\n')
+            if if_print_region:
+                sys.stderr.write(f'Using customized region {self.default_region} server backend.\n\n')
             return ('CN' if self.default_region == 'China' else 'EN') if if_judge_cn else self.default_region
 
         _headers_fn = lambda url: self.get_headers(url, if_api=False, if_referer_for_host=True)
         try:
             try:
                 data = json.loads(requests.get(self.get_addr_url, headers=_headers_fn(self.get_addr_url)).text[9:-2])
-                # sys.stderr.write(f'Using region {data.get("stateName")} server backend.\n\n')
+                if if_print_region:
+                    sys.stderr.write(f'Using region {data.get("stateName")} server backend.\n\n')
                 return data.get('country') if if_judge_cn else data.get("stateName")
-            except requests.exceptions.Timeout:
+            except:
                 ip_address = requests.get(self.get_ip_url, headers=_headers_fn(self.get_ip_url)).json()['origin']
                 payload = {'ip': ip_address, 'accessKey': 'alibaba-inc'}
                 data = requests.post(url=self.ip_tb_add_url, data=payload, headers=_headers_fn(self.ip_tb_add_url)).json().get('data')
@@ -322,13 +330,14 @@ class GuestSeverRegion(Tse):
         except:
             warnings.warn('Unable to find server backend.\n\n')
             region = input('Please input your server region need to visit:\neg: [Qatar, China, ...]\n\n')
-            # sys.stderr.write(f'Using region {region} server backend.\n\n')
+            sys.stderr.write(f'Using region {region} server backend.\n\n')
             return 'CN' if region == 'China' else 'EN'
 
 
 class GoogleV1(Tse):
     def __init__(self, server_region='EN'):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = None
         self.cn_host_url = 'https://translate.google.cn'
         self.en_host_url = 'https://translate.google.com'
@@ -466,9 +475,10 @@ class GoogleV1(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.api_url):
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
 
@@ -495,11 +505,13 @@ class GoogleV1(Tse):
 class GoogleV2(Tse):
     def __init__(self, server_region='EN'):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = None
         self.cn_host_url = 'https://translate.google.cn'
         self.en_host_url = 'https://translate.google.com'
         self.api_url = None
         self.api_url_path = '/_/TranslateWebserverUi/data/batchexecute'
+        self.consent_url = 'https://consent.google.com/save'
         self.server_region = server_region
         self.host_headers = None
         self.api_headers = None
@@ -527,11 +539,14 @@ class GoogleV2(Tse):
         data = execjs.eval(data_str)
         return {'bl': data['cfb2h'], 'f.sid': data['FdrFJe']}
 
-    def get_consent_cookie(self, consent_html: str) -> str:  # by mercuree. merged but not verify.
+    def get_consent_data(self, consent_html: str) -> dict:  #142 merged but not verify.
         et = lxml.etree.HTML(consent_html)
-        input_element = et.xpath('.//input[@type="hidden"][@name="v"]')
-        cookie_value = input_element[0].attrib.get('value') if input_element else 'cb'
-        return f'CONSENT=YES+{cookie_value}'  # cookie CONSENT=YES+cb works for now
+        form_element = et.xpath('.//form[1]')
+        self.consent_url = form_element[0].attrib.get('action') if form_element else self.consent_url
+
+        input_elements = form_element[0].xpath('.//input[@type="hidden"]')
+        data = {e.attrib.get('name'): e.attrib.get('value') for e in input_elements}
+        return data
 
     @Tse.time_stat
     @Tse.check_query
@@ -584,14 +599,15 @@ class GoogleV2(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             r = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
-            if 'consent.google.com' == urllib.parse.urlparse(r.url).hostname:
-                self.host_headers.update({'cookie': self.get_consent_cookie(r.text)})
-                host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
+            if urllib.parse.urlparse(self.consent_url).hostname == urllib.parse.urlparse(r.url).hostname:
+                form_data = self.get_consent_data(r.text)
+                host_html = self.session.post(self.consent_url, data=form_data, headers=self.host_headers, timeout=timeout, proxies=proxies).text
             else:
                 host_html = r.text
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
@@ -613,6 +629,7 @@ class GoogleV2(Tse):
 class BaiduV1(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://fanyi.baidu.com'
         self.api_url = 'https://fanyi.baidu.com/transapi'
         self.get_lang_url = None
@@ -672,9 +689,10 @@ class BaiduV1(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)  # must twice, send cookies.
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
@@ -704,6 +722,7 @@ class BaiduV1(Tse):
 class BaiduV2(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://fanyi.baidu.com'
         self.api_url = 'https://fanyi.baidu.com/v2transapi'
         self.langdetect_url = 'https://fanyi.baidu.com/langdetect'
@@ -788,9 +807,10 @@ class BaiduV2(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.token and self.sign):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)  # must twice, send cookies.
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
@@ -804,8 +824,9 @@ class BaiduV2(Tse):
             self.language_map = self.get_language_map(self.get_lang_url, self.session, self.host_headers, timeout, proxies, **debug_lang_kwargs)
 
         from_language, to_language = self.check_language(from_language, to_language, self.language_map, output_zh=self.output_zh)
+
+        res = self.session.post(self.langdetect_url, headers=self.api_headers, data={"query": query_text}, timeout=timeout, proxies=proxies)
         if from_language == 'auto':
-            res = self.session.post(self.langdetect_url, headers=self.api_headers, data={"query": query_text}, timeout=timeout, proxies=proxies)
             from_language = res.json()['lan']
 
         params = {"from": from_language, "to": to_language}
@@ -818,6 +839,7 @@ class BaiduV2(Tse):
             "sign": self.sign,
             "token": self.token,
             "domain": use_domain,
+            "ts": self.get_timestamp(),
         }
         payload = urllib.parse.urlencode(payload).encode('utf-8')
         # self.api_headers.update({'Acs-Token': self.acs_token})
@@ -832,6 +854,7 @@ class BaiduV2(Tse):
 class YoudaoV1(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://fanyi.youdao.com'
         self.api_url = 'https://fanyi.youdao.com/translate_o?smartresult=dict&smartresult=rule'
         self.language_url = 'https://api-overmind.youdao.com/openapi/get/luna/dict/luna-front/prod/langType'
@@ -933,9 +956,10 @@ class YoudaoV1(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.sign_key):
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
             self.sign_key = self.get_sign_key(host_html, self.session, timeout, proxies)
@@ -956,6 +980,7 @@ class YoudaoV1(Tse):
 class YoudaoV2(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://fanyi.youdao.com'
         self.api_url = 'https://dict.youdao.com/webtranslate'
         self.api_host = 'https://dict.youdao.com'
@@ -1056,9 +1081,10 @@ class YoudaoV2(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.secret_key):
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
             _ = self.session.get(self.login_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
@@ -1099,6 +1125,7 @@ class YoudaoV2(Tse):
 class YoudaoV3(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://ai.youdao.com/product-fanyi-text.s'
         self.api_url = 'https://aidemo.youdao.com/trans'
         self.host_headers = self.get_headers(self.host_url, if_api=False)
@@ -1150,9 +1177,10 @@ class YoudaoV3(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
@@ -1175,6 +1203,7 @@ class YoudaoV3(Tse):
 class QQFanyi(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://fanyi.qq.com'
         self.api_url = 'https://fanyi.qq.com/api/translate'
         self.get_language_url = 'https://fanyi.qq.com/js/index.js'
@@ -1233,9 +1262,10 @@ class QQFanyi(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.qtv_qtk):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
             self.qtv_qtk = self.get_qt(self.session, timeout, proxies)
@@ -1265,6 +1295,7 @@ class QQFanyi(Tse):
 class QQTranSmart(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://transmart.qq.com'
         self.api_url = 'https://transmart.qq.com/api/imt'
         self.get_lang_url = None
@@ -1328,9 +1359,10 @@ class QQTranSmart(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
 
@@ -1382,6 +1414,7 @@ class QQTranSmart(Tse):
 class AlibabaV1(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://translate.alibaba.com'
         self.api_url = 'https://translate.alibaba.com/translationopenseviceapp/trans/TranslateTextAddAlignment.do'
         self.get_language_url = 'https://translate.alibaba.com/translationopenseviceapp/trans/acquire_supportLanguage.do'
@@ -1412,7 +1445,7 @@ class AlibabaV1(Tse):
         s = self.get_timestamp()
         o = ''.join([e, hex(s)[2:]])
         for _ in range(1, 10):
-            a = hex(int(0 * 1e10))[2:]  # int->str: 16, '0x'
+            a = hex(int(random.random() * 1e10))[2:]  # int->str: 16, '0x'
             o += a
         return o[:42]
 
@@ -1460,9 +1493,10 @@ class AlibabaV1(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.dmtrack_pageid):
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_response = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
             self.dmtrack_pageid = self.get_dmtrack_pageid(host_response)
@@ -1490,6 +1524,7 @@ class AlibabaV1(Tse):
 class AlibabaV2(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://translate.alibaba.com'
         self.api_url = 'https://translate.alibaba.com/api/translate/text'
         self.csrf_url = 'https://translate.alibaba.com/api/translate/csrftoken'
@@ -1562,9 +1597,10 @@ class AlibabaV2(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.csrf_token):
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
             self.get_language_url = f'https:{re.compile(self.get_language_pattern).search(host_html).group()}'
@@ -1596,6 +1632,7 @@ class AlibabaV2(Tse):
 class Bing(Tse):
     def __init__(self, server_region='EN'):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = None
         self.cn_host_url = 'https://cn.bing.com/Translator'
         self.en_host_url = 'https://www.bing.com/Translator'
@@ -1622,8 +1659,7 @@ class Bing(Tse):
 
     def get_ig_iid(self, host_html: str) -> dict:
         et = lxml.etree.HTML(host_html)
-        # iid = et.xpath('//*[@id="tta_outGDCont"]/@data-iid')[0]  # browser page is different between request page.
-        iid = 'translator.5028'
+        iid = et.xpath('//*[@id="tta_outGDCont"]/@data-iid')[0]  # 'translator.5028'
         ig = re.compile('IG:"(.*?)"').findall(host_html)[0]
         return {'iid': iid, 'ig': ig}
 
@@ -1672,9 +1708,10 @@ class Bing(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.tk and self.ig_iid):
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
             self.tk = self.get_tk(host_html)
@@ -1696,15 +1733,22 @@ class Bing(Tse):
         api_url = ''.join([self.api_url, api_url_param])
         r = self.session.post(api_url, headers=self.host_headers, data=payload, timeout=timeout, proxies=proxies)
         r.raise_for_status()
-        data = r.json()
         time.sleep(sleep_seconds)
         self.query_count += 1
-        return data[0] if is_detail_result else data[0]['translations'][0]['text']
 
+        try:
+            data = r.json()
+            return data[0] if is_detail_result else data[0]['translations'][0]['text']
+        except requests.exceptions.JSONDecodeError:  #122
+            data_html = r.text
+            et = lxml.etree.HTML(data_html)
+            ss = et.xpath('//*/textarea/text()')
+            return {'data': ss} if is_detail_result else ss[-1]
 
 class Sogou(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://fanyi.sogou.com/text'
         self.api_url = 'https://fanyi.sogou.com/api/transpc/text/result'
         self.get_language_old_url = 'https://search.sogoucdn.com/translate/pc/static/js/app.7016e0df.js'
@@ -1734,14 +1778,6 @@ class Sogou(Tse):
         lang_item_list = json.loads(lang_list_str)
         lang_list = [item['lang'] for item in lang_item_list if item['play'] == 1]
         return {}.fromkeys(lang_list, lang_list)
-
-    # def get_uuid(self) -> str:
-    #     _uuid = ''
-    #     for i in range(8):
-    #         _uuid += hex(int(65536 * (1 + 0)))[2:][1:]
-    #         if i in range(1, 5):
-    #             _uuid += '-'
-    #     return _uuid
 
     def get_form(self, query_text: str, from_language: str, to_language: str, uid: str) -> dict:
         sign_text = "" + from_language + to_language + query_text + '109984457'  # window.__INITIAL_STATE__.common.CONFIG.secretCode
@@ -1791,10 +1827,11 @@ class Sogou(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.uuid):
             self.uuid = str(uuid.uuid4())
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
@@ -1814,6 +1851,7 @@ class Sogou(Tse):
 class Caiyun(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://fanyi.caiyunapp.com'
         self.api_url = 'https://api.interpreter.caiyunai.com/v1/translator'
         self.get_js_pattern = '/assets/index.(.*?).js'
@@ -1837,14 +1875,13 @@ class Caiyun(Tse):
 
     @Tse.debug_language_map
     def get_language_map(self, js_html: str, **kwargs: LangMapKwargsType) -> dict:
-        return execjs.eval(re.compile('={auto:\\[(.*?)}').search(js_html).group()[1:])
+        lang_text = re.compile('lang:{(.*?)},').search(js_html).group()[5:-1]
+        lang_pair_list = re.compile('(\\w+):(.*?),').findall(lang_text)
+        lang_list = sorted([lang for lang, _ in lang_pair_list])
+        return {}.fromkeys(lang_list, lang_list)
 
     def get_tk(self, js_html: str) -> str:
         return re.compile('headers\\["X-Authorization"]="(.*?)",').findall(js_html)[0]
-
-    # def get_jwt(self, browser_id: str, api_headers: dict, ss: SessionType, timeout: float, proxies: dict) -> str:
-    #     data = {"browser_id": browser_id}
-    #     return ss.post(self.get_jwt_url, json=data, headers=api_headers, timeout=timeout, proxies=proxies).json()['jwt']
 
     def crypt(self, if_de: bool = True) -> dict:
         if if_de:
@@ -1898,9 +1935,10 @@ class Caiyun(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.tk and self.jwt):
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
             js_url_path = re.compile(self.get_js_pattern).search(host_html).group()
@@ -1953,8 +1991,10 @@ class Caiyun(Tse):
 class Deepl(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://www.deepl.com/translator'
         self.api_url = 'https://www2.deepl.com/jsonrpc'
+        self.login_url = 'https://login-wall.deepl.com'
         self.host_headers = self.get_headers(self.host_url, if_api=False)
         self.api_headers = self.get_headers(self.host_url, if_api=True, if_ajax_for_api=False, if_json_for_api=True)
         self.params = {'split': {'method': 'LMT_split_text'}, 'handle': {'method': 'LMT_handle_jobs'}}
@@ -1968,7 +2008,7 @@ class Deepl(Tse):
 
     @Tse.debug_language_map
     def get_language_map(self, host_html: str, **kwargs: LangMapKwargsType) -> dict:
-        lang_list = list(set(re.compile('translateIntoLang\\.(\\w+)":').findall(host_html)))
+        lang_list = sorted(list(set(re.compile("\\['selectLang_source_(\\w+)']").findall(host_html))))
         return {}.fromkeys(lang_list, lang_list)
 
     def split_sentences_param(self, query_text: str, from_language: str) -> dict:
@@ -1987,6 +2027,8 @@ class Deepl(Tse):
                 },
             },
         }
+        if from_language != 'auto':
+            data['params']['lang'].update({'lang_computed': from_language})
         return {**self.params['split'], **data}
 
     def context_sentences_param(self, sentences: List[str], from_language: str, to_language: str) -> dict:
@@ -2001,6 +2043,7 @@ class Deepl(Tse):
                     # 'regionalVariant': 'en-US',
                     'browserType': 1,
                     'mode': 'translate',
+                    'textType': 'plaintext',
                 },
                 'jobs': [
                     {
@@ -2010,14 +2053,15 @@ class Deepl(Tse):
                         'raw_en_context_before': sentences[1:i] if sentences[i-1] else [],
                         'raw_en_context_after': [sentences[i+1]] if sentences[i+1] else [],
                         'preferred_num_beams': 1 if len(sentences) >= 4 else 4,  # 1 if two sentences else 4, len>=2+2
-                    } for i in range(1, len(sentences) - 1)
+                    }
+                    for i in range(1, len(sentences) - 1)
                 ],
                 'lang': {
                     'preference': {
                         'weight': {},
                         'default': 'default',
                     },
-                    'source_lang_user_selected': from_language,  # "source_lang_computed"
+                    'source_lang_computed': from_language,  # 'source_lang_user_selected'
                     'target_lang': to_language,
                 },
             },
@@ -2057,13 +2101,15 @@ class Deepl(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
             self.language_map = self.get_language_map(host_html, **debug_lang_kwargs)
+            _ = self.session.get(self.login_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
 
         from_language, to_language = self.check_language(from_language, to_language, language_map=self.language_map, output_zh=self.output_zh, output_auto='auto')
         from_language = from_language.upper() if from_language != 'auto' else from_language
@@ -2073,22 +2119,23 @@ class Deepl(Tse):
         r_s = self.session.post(self.api_url, params=self.params['split'], json=ssp_data, headers=self.api_headers, timeout=timeout, proxies=proxies)
         r_s.raise_for_status()
         s_data = r_s.json()
-
+        from_language = s_data['result']['lang']['detected']
         s_sentences = [it['sentences'][0]['text'] for item in s_data['result']['texts'] for it in item['chunks']]
-        h_data = self.context_sentences_param(s_sentences, from_language, to_language)
 
+        h_data = self.context_sentences_param(s_sentences, from_language, to_language)
         r_cs = self.session.post(self.api_url, params=self.params['handle'], json=h_data, headers=self.api_headers, timeout=timeout, proxies=proxies)
         r_cs.raise_for_status()
         data = r_cs.json()
         time.sleep(sleep_seconds)
         self.request_id += 3
         self.query_count += 1
-        return data if is_detail_result else '\n'.join(item['beams'][0]['sentences'][0]["text"] for item in data['result']['translations'])
+        return data if is_detail_result else ' '.join(item['beams'][0]['sentences'][0]["text"] for item in data['result']['translations'])  # either ' ' or '\n'.
 
 
 class Yandex(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.home_url = 'https://yandex.com'
         self.host_url = 'https://translate.yandex.com'
         self.api_url = 'https://translate.yandex.net/api/v1/tr.json/translate'
@@ -2189,9 +2236,10 @@ class Yandex(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.sid and self.yu):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.home_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
@@ -2234,20 +2282,20 @@ class Yandex(Tse):
 class Argos(Tse):
     def __init__(self):
         super().__init__()
-        self.host_url = 'https://translate.argosopentech.com'
+        self.begin_time = time.time()
+        self.host_url = 'https://libretranslate.com'
         self.api_url = f'{self.host_url}/translate'
         self.language_url = f'{self.host_url}/languages'
+        self.secret_url = f'{self.host_url}/js/app.js?v=1.5.0'
         self.host_headers = self.get_headers(self.host_url, if_api=False, if_ajax_for_api=False)
         self.api_headers = self.get_headers(self.host_url, if_api=True, if_ajax_for_api=False, if_json_for_api=True)
         self.language_headers = self.get_headers(self.host_url, if_api=False, if_json_for_api=True)
-        self.host_pool = ['https://translate.argosopentech.com', 'https://libretranslate.de',
-                          'https://translate.astian.org', 'https://translate.mentality.rip',
-                          'https://translate.api.skitzen.com', 'https://trans.zillyhuhn.com']
         self.language_map = None
+        self.api_secret = None
         self.session = None
         self.query_count = 0
         self.output_zh = 'zh'
-        self.input_limit = int(5e3)  # unknown
+        self.input_limit = int(2e3)
         self.default_from_language = self.output_zh
 
     @Tse.debug_language_map
@@ -2256,11 +2304,16 @@ class Argos(Tse):
         lang_list = sorted([lang['code'] for lang in lang_list])
         return {}.fromkeys(lang_list, lang_list)
 
+    def get_secret(self, secret_url: str, ss: SessionType, headers: dict, timeout: Optional[float], proxies: Optional[dict]) -> str:
+        js_html = ss.get(secret_url, headers=headers, timeout=timeout, proxies=proxies).text
+        secret = re.compile('apiSecret: "(.*?)"').findall(js_html)[0]
+        return secret
+
     @Tse.time_stat
     @Tse.check_query
     def argos_api(self, query_text: str, from_language: str = 'auto', to_language: str = 'en', **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
-        https://translate.argosopentech.com
+        https://libretranslate.com
         :param query_text: str, must.
         :param from_language: str, default 'auto'.
         :param to_language: str, default 'en'.
@@ -2277,17 +2330,8 @@ class Argos(Tse):
                 :param if_show_time_stat: bool, default False.
                 :param show_time_stat_precision: int, default 2.
                 :param if_print_warning: bool, default True.
-                :param reset_host_url: str, default None.
         :return: str or dict
         """
-
-        reset_host_url = kwargs.get('reset_host_url', None)
-        if reset_host_url and reset_host_url != self.host_url:
-            if reset_host_url not in self.host_pool:
-                raise TranslatorError
-            self.host_url = reset_host_url
-            self.api_url = f'{self.host_url}/translate'
-            self.language_url = f'{self.host_url}/languages'
 
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
@@ -2298,16 +2342,25 @@ class Argos(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
-        if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+        if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.api_secret):
+            self.begin_time = time.time()
             self.session = requests.Session()
-            _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
+            _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
+            self.api_secret = self.get_secret(self.secret_url, self.session, self.host_headers, timeout, proxies)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
             self.language_map = self.get_language_map(self.language_url, self.session, self.language_headers, timeout, proxies, **debug_lang_kwargs)
 
         from_language, to_language = self.check_language(from_language, to_language, self.language_map, output_zh=self.output_zh)
-        payload = {'q': query_text, 'source': from_language, 'target': to_language, 'format': 'text'}
+        payload = {
+            'q': query_text,
+            'source': from_language,
+            'target': to_language,
+            'format': 'text',
+            'api_key': '',
+            'secret': self.api_secret,
+        }
         r = self.session.post(self.api_url, headers=self.api_headers, json=payload, timeout=timeout, proxies=proxies)
         r.raise_for_status()
         data = r.json()
@@ -2319,6 +2372,7 @@ class Argos(Tse):
 class Iciba(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://www.iciba.com/fy'
         self.api_url = 'https://ifanyi.iciba.com/index.php'
         self.host_headers = self.get_headers(self.host_url, if_api=False, if_ajax_for_api=False)
@@ -2372,9 +2426,10 @@ class Iciba(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
@@ -2383,8 +2438,18 @@ class Iciba(Tse):
         from_language, to_language = self.check_language(from_language, to_language, self.language_map, output_zh=self.output_zh)
 
         sign = hashlib.md5(f"6key_web_fanyi{self.s_y2}{query_text}".encode()).hexdigest()[:16]  # strip()
-        params = {'c': 'trans', 'm': 'fy', 'client': 6, 'auth_user': 'key_web_fanyi', 'sign': sign}
-        payload = {'from': from_language, 'to': to_language, 'q': query_text}
+        params = {
+            'c': 'trans',
+            'm': 'fy',
+            'client': 6,
+            'auth_user': 'key_web_fanyi',
+            'sign': sign
+        }
+        payload = {
+            'from': from_language,
+            'to': to_language,
+            'q': query_text,
+        }
         r = self.session.post(self.api_url, headers=self.api_headers, params=params, data=payload, timeout=timeout, proxies=proxies)
         r.raise_for_status()
         data = r.json()
@@ -2396,6 +2461,7 @@ class Iciba(Tse):
 class IflytekV1(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://saas.xfyun.cn/translate?tabKey=text'
         self.api_url = 'https://saas.xfyun.cn/ai-application/trans/its'
         self.language_old_url = 'https://saas.xfyun.cn/_next/static/4bzLSGCWUNl67Xal-AfIl/pages/translate.js'
@@ -2461,9 +2527,10 @@ class IflytekV1(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
             _ = self.session.get(self.cookies_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
@@ -2489,6 +2556,7 @@ class IflytekV1(Tse):
 class IflytekV2(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://fanyi.xfyun.cn/console/trans/text'  # https://www.iflyrec.com/html/translate.html
         self.api_url = 'https://fanyi.xfyun.cn/api-tran/trans/its'
         self.detect_language_url = 'https://fanyi.xfyun.cn/api-tran/trans/detection'
@@ -2551,9 +2619,10 @@ class IflytekV2(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
@@ -2577,6 +2646,7 @@ class IflytekV2(Tse):
 class Iflyrec(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://fanyi.iflyrec.com'
         self.api_url = 'https://fanyi.iflyrec.com/TranslationService/v1/textAutoTranslation'
         self.detect_lang_url = 'https://fanyi.iflyrec.com/TranslationService/v1/languageDetection'
@@ -2631,9 +2701,10 @@ class Iflyrec(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
@@ -2665,10 +2736,11 @@ class Iflyrec(Tse):
 class Reverso(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://www.reverso.net/text-translation'
         self.api_url = 'https://api.reverso.net/translate/v1/translation'
         self.language_url = None
-        self.language_pattern = 'https://cdn.reverso.net/trans/v(\\d).(\\d).(\\d)/main.js'
+        self.language_pattern = 'https://cdn.reverso.net/trans/v(\\d+).(\\d+).(\\d+)/main.js'
         self.host_headers = self.get_headers(self.host_url, if_api=False)
         self.api_headers = self.get_headers(self.host_url, if_api=True, if_json_for_api=True)
         self.session = None
@@ -2724,9 +2796,10 @@ class Reverso(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.decrypt_language_map):
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
             self.language_url = re.compile(self.language_pattern).search(host_html).group()
@@ -2763,6 +2836,7 @@ class Reverso(Tse):
 class Itranslate(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://itranslate.com/translate'
         self.api_url = 'https://web-api.itranslateapp.com/v3/texts/translate'
         self.manifest_url = 'https://itranslate-webapp-production.web.app/manifest.json'
@@ -2820,9 +2894,10 @@ class Itranslate(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
 
@@ -2855,6 +2930,7 @@ class Itranslate(Tse):
 class TranslateCom(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://www.translate.com/machine-translation'
         self.api_url = 'https://www.translate.com/translator/translate_mt'
         self.lang_detect_url = 'https://www.translate.com/translator/ajax_lang_auto_detect'
@@ -2906,9 +2982,10 @@ class TranslateCom(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
             lang_r = self.session.get(self.language_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
@@ -2940,6 +3017,7 @@ class TranslateCom(Tse):
 class Utibet(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'http://mt.utibet.edu.cn/mt'  # must http
         self.api_url = self.host_url
         self.host_headers = self.get_headers(self.host_url, if_api=False)
@@ -2988,9 +3066,10 @@ class Utibet(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
 
@@ -3014,6 +3093,7 @@ class Utibet(Tse):
 class Papago(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://papago.naver.com'
         self.api_url = 'https://papago.naver.com/apis/n2mt/translate'  # nsmt
         self.web_api_url = 'https://papago.naver.net/website'
@@ -3080,10 +3160,11 @@ class Papago(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.auth_key):
             self.device_id = str(uuid.uuid4())
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
             url_path = re.compile(self.language_url_pattern).search(host_html).group()
@@ -3128,10 +3209,11 @@ class Papago(Tse):
 class Lingvanex(Tse):
     def __init__(self):
         super().__init__()
-        self.host_url = 'https://lingvanex.com/demo/'
+        self.begin_time = time.time()
+        self.host_url = 'https://lingvanex.com/translate/'
         self.api_url = None
         self.language_url = None
-        self.auth_url = 'https://lingvanex.com/lingvanex_demo_page/js/api-base.js'
+        self.auth_url = 'https://lingvanex.com/translate/js/api-base.js'
         self.host_headers = self.get_headers(self.host_url, if_api=False)
         self.api_headers = self.get_headers(self.host_url, if_api=True, if_json_for_api=False)
         self.session = None
@@ -3166,7 +3248,7 @@ class Lingvanex(Tse):
     @Tse.check_query
     def lingvanex_api(self, query_text: str, from_language: str = 'auto', to_language: str = 'en', **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
-        https://lingvanex.com/demo/
+        https://lingvanex.com/translate/
         :param query_text: str, must.
         :param from_language: str, default 'auto'.
         :param to_language: str, default 'en'.
@@ -3197,9 +3279,10 @@ class Lingvanex(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.auth_info and self.mode == mode):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
             self.auth_info = self.get_auth(self.auth_url, self.session, self.host_headers, timeout, proxies)
@@ -3229,7 +3312,7 @@ class Lingvanex(Tse):
             'to': to_language,
             'text': query_text,
             'platform': 'dp',
-            'is_return_text_split_ranges': 'true'
+            # 'is_return_text_split_ranges': 'true'
         }
         payload = urllib.parse.urlencode(payload)
         r = self.session.post(self.api_url, data=payload, headers=self.api_headers, timeout=timeout, proxies=proxies)
@@ -3237,12 +3320,13 @@ class Lingvanex(Tse):
         data = r.json()
         time.sleep(sleep_seconds)
         self.query_count += 1
-        return data if is_detail_result else data['result']['text']
+        return data if is_detail_result else data['result']
 
 
-class Niutrans(Tse):
+class NiutransV1(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'http://display.niutrans.com'  # must http
         self.api_url = 'http://display.niutrans.com/niutrans/textTranslation'
         self.cookie_url = 'http://display.niutrans.com/niutrans/user/getAccountAdmin?locale=zh-CN'
@@ -3317,9 +3401,10 @@ class Niutrans(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.account_info and self.api_headers):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
             _ = self.session.options(self.cookie_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
@@ -3360,9 +3445,162 @@ class Niutrans(Tse):
         return data if is_detail_result else '\n'.join([' '.join([it['data'] for it in item['sentences']]) for item in data['data']])
 
 
+class NiutransV2(Tse):
+    def __init__(self):
+        super().__init__()
+        self.begin_time = time.time()
+        self.home_url = 'https://niutrans.com'
+        self.host_url = 'https://niutrans.com/trans?type=text'
+        self.api_url = 'https://test.niutrans.com/NiuTransServer/testaligntrans'
+        self.get_language_url = 'https://niutrans.com/NiuTransFrontPage/language/getAllLanguage'
+        self.detect_language_url = 'https://test.niutrans.com/NiuTransServer/language'
+        self.login_url = 'https://niutrans.com/NiuTransConsole/user/isLogin'
+        self.geetest_host_url = 'https://www.geetest.com'
+        self.geetest_captcaha_url = 'https://www.geetest.com/adaptive-captcha-demo'
+        self.geetest_load_url = 'https://gcaptcha4.geetest.com/load'
+        self.geetest_verify_url = 'https://gcaptcha4.geetest.com/verify'
+        self.host_headers = self.get_headers(self.host_url, if_api=False)
+        self.api_headers = self.get_headers(self.host_url, if_api=True, if_json_for_api=True)
+        self.session = None
+        self.language_map = None
+        self.captcha_id = None  # '24f56dc13c40dc4a02fd0318567caef5'
+        self.geetest_load_data = None
+        self.geetest_verify_data = None
+        self.query_count = 0
+        self.output_zh = 'zh'
+        self.input_limit = int(5e3)
+        self.default_from_language = self.output_zh
+
+    @Tse.debug_language_map
+    def get_language_map(self, lang_url: str, ss: SessionType, headers: dict, timeout: Optional[float], proxies: Optional[dict], **kwargs: LangMapKwargsType) -> dict:
+        d_lang_map = ss.get(lang_url, headers=headers, timeout=timeout, proxies=proxies).json()
+        lang_list = sorted(set([it['code'] for item in d_lang_map['languageList'] for it in item['result']]))
+        return {}.fromkeys(lang_list, lang_list)
+
+    def get_captcha_id(self, captcha_url: str, ss: SessionType, headers: dict, timeout: Optional[float], proxies: Optional[dict]):
+        captcha_host_html = ss.get(captcha_url, headers=headers, timeout=timeout, proxies=proxies).text
+        captcha_js_url_path = re.compile('/_next/static/(.*?)/pages/adaptive-captcha-demo.js').search(captcha_host_html).group(0)
+        captcha_js_url = f'{self.geetest_host_url}{captcha_js_url_path}'
+        captcha_js_html = ss.get(captcha_js_url, headers=headers, timeout=timeout, proxies=proxies).text
+        captcha_id = re.compile('captchaId:"(.*?)",').search(captcha_js_html).group(1)
+        return captcha_id
+
+    def get_geetest_callback(self):
+        return f'geetest_{int(self.get_timestamp() + int(random.random() * 1e4))}'
+
+    def get_geetest_w(self, k=1088):
+        pool = list('abcdef' + '0123456789')
+        return ''.join(random.choices(pool, k=k))  # TODO
+
+    def get_geetest_data(self, timeout, proxies):
+        gl_params = {
+            'callback': self.get_geetest_callback(),
+            'captcha_id': self.captcha_id,
+            'challenge': str(uuid.uuid4()),
+            'client_type': 'web',  # 'h5'
+            'lang': 'zh-cn',
+        }
+        r_gl = self.session.get(self.geetest_load_url, params=gl_params, headers=self.host_headers, timeout=timeout, proxies=proxies)
+        self.geetest_load_data = json.loads(r_gl.text[22:-1])['data']
+
+        gv_params = {
+            'callback': self.get_geetest_callback(),
+            'captcha_id': self.captcha_id,
+            'client_type': 'web',  # 'h5'
+            'lot_number': self.geetest_load_data['lot_number'],
+            'payload': self.geetest_load_data['payload'],
+            'process_token': self.geetest_load_data['process_token'],
+            'payload_protocol': self.geetest_load_data['payload_protocol'],
+            'pt': self.geetest_load_data['pt'],
+            'w': self.get_geetest_w(),  # TODO
+        }
+        r_gv = self.session.get(self.geetest_verify_url, params=gv_params, headers=self.host_headers, timeout=timeout, proxies=proxies)
+        self.geetest_verify_data = json.loads(r_gv.text[22:-1])['data']['seccode']
+        return
+
+    @Tse.uncertified
+    @Tse.time_stat
+    @Tse.check_query
+    def niutrans_api(self, query_text: str, from_language: str = 'auto', to_language: str = 'en', **kwargs: ApiKwargsType) -> Union[str, dict]:
+        """
+        https://niutrans.com/trans?type=text
+        :param query_text: str, must.
+        :param from_language: str, default 'auto'.
+        :param to_language: str, default 'en'.
+        :param **kwargs:
+                :param timeout: float, default None.
+                :param proxies: dict, default None.
+                :param sleep_seconds: float, default 0.
+                :param is_detail_result: bool, default False.
+                :param if_ignore_limit_of_length: bool, default False.
+                :param limit_of_length: int, default 20000.
+                :param if_ignore_empty_query: bool, default False.
+                :param update_session_after_freq: int, default 1000.
+                :param update_session_after_seconds: float, default 1500.
+                :param if_show_time_stat: bool, default False.
+                :param show_time_stat_precision: int, default 2.
+                :param if_print_warning: bool, default True.
+        :return: str or dict
+        """
+
+        timeout = kwargs.get('timeout', None)
+        proxies = kwargs.get('proxies', None)
+        sleep_seconds = kwargs.get('sleep_seconds', 0)
+        if_print_warning = kwargs.get('if_print_warning', True)
+        is_detail_result = kwargs.get('is_detail_result', False)
+        update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
+        update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
+        self.check_input_limit(query_text, self.input_limit)
+
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
+        not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
+        if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.captcha_id):
+            self.begin_time = time.time()
+            self.session = requests.Session()
+            _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
+            _ = self.session.get(self.login_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
+            self.captcha_id = self.get_captcha_id(self.geetest_captcaha_url, self.session, self.host_headers, timeout, proxies)
+            debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
+            self.language_map = self.get_language_map(self.get_language_url, self.session, self.api_headers, timeout, proxies, **debug_lang_kwargs)
+
+        from_language, to_language = self.check_language(from_language, to_language, self.language_map, output_zh=self.output_zh)
+        if from_language == 'auto':
+            params = {
+                'src_text': query_text,
+                'time': self.get_timestamp(),
+                'source': 'text',
+            }
+            res = self.session.get(self.detect_language_url, params=params, headers=self.host_headers, timeout=timeout, proxies=proxies)
+            from_language = res.json()['language']
+
+        self.get_geetest_data(timeout, proxies)
+        trans_params = {
+            'src_text': query_text,
+            'from': from_language,
+            'to': to_language,
+            'source': 'text',
+            'dictNo': '',
+            'memoryNo': '',
+            'lot_number': self.geetest_verify_data['lot_number'],
+            'captcha_output': self.geetest_verify_data['captcha_output'],
+            'pass_token': self.geetest_verify_data['pass_token'],
+            'gen_time': self.geetest_verify_data['gen_time'],
+            'time': self.get_timestamp(),
+            'isUseDict': 0,
+            'isUseMemory': 0,
+        }
+        r = self.session.get(self.api_url, params=trans_params, headers=self.api_headers, timeout=timeout, proxies=proxies)
+        r.raise_for_status()
+        data = r.json()
+        time.sleep(sleep_seconds)
+        self.query_count += 1
+        return data if is_detail_result else data['tgt_text']
+
+
 class Mglip(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'http://fy.mglip.com/pc'  # must http
         self.api_url = 'http://fy.mglip.com/t2t'
         self.host_headers = self.get_headers(self.host_url, if_api=False)
@@ -3407,9 +3645,10 @@ class Mglip(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
 
@@ -3430,6 +3669,7 @@ class Mglip(Tse):
 class VolcEngine(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://translate.volcengine.com'
         self.api_url = 'https://translate.volcengine.com/web/translate/v1'
         self.host_headers = self.get_headers(self.host_url, if_api=False)
@@ -3508,9 +3748,10 @@ class VolcEngine(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
@@ -3542,6 +3783,7 @@ class VolcEngine(Tse):
 class ModernMt(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://www.modernmt.com/translate'
         self.api_url = 'https://webapi.modernmt.com/translate'
         self.language_url = 'https://www.modernmt.com/scripts/app.bundle.js'
@@ -3594,9 +3836,10 @@ class ModernMt(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
@@ -3625,6 +3868,7 @@ class ModernMt(Tse):
 class MyMemory(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://mymemory.translated.net'
         self.api_web_url = 'https://mymemory.translated.net/api/ajaxfetch'
         self.api_api_url = 'https://api.mymemory.translated.net/get'
@@ -3687,9 +3931,10 @@ class MyMemory(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
@@ -3719,6 +3964,7 @@ class MyMemory(Tse):
 class Mirai(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.home_url = 'https://miraitranslate.com'
         self.host_url = 'https://miraitranslate.com/trial/'
         self.api_url = 'https://trial.miraitranslate.com/trial/api/translate.php'
@@ -3780,9 +4026,10 @@ class Mirai(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.tran_key):
+            self.begin_time = time.time()
             self.session = requests.Session()
             # _ = self.session.get(self.home_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
@@ -3833,6 +4080,7 @@ class Mirai(Tse):
 class Apertium(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://www.apertium.org/'
         self.api_url = 'https://apertium.org/apy/translate'
         self.get_lang_url = 'https://www.apertium.org/index.js'
@@ -3886,9 +4134,10 @@ class Apertium(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
@@ -3919,6 +4168,7 @@ class Apertium(Tse):
 class Tilde(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://translate.tilde.com/'
         self.api_url = 'https://letsmt.eu/ws/service.svc/json/TranslateEx'
         self.get_config_url = 'https://translate.tilde.com/assets/config.local.json'  # ?version=46852
@@ -3981,9 +4231,10 @@ class Tilde(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
             self.config_data = self.session.get(self.get_config_url, headers=self.host_headers, timeout=timeout, proxies=proxies).json()
@@ -4014,9 +4265,10 @@ class Tilde(Tse):
         return data if is_detail_result else data['translation']
 
 
-class CloudYi(Tse):
+class cloudTranslationV1(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.home_url = 'https://www.cloudtranslation.com'
         self.host_url = 'https://www.cloudtranslation.com/#/translate'
         self.api_url = 'https://www.cloudtranslation.com/official-website/v1/transOneSrcText'
@@ -4048,7 +4300,7 @@ class CloudYi(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    def cloudYi_api(self, query_text: str, from_language: str = 'auto', to_language: str = 'en', **kwargs: ApiKwargsType) -> Union[str, dict]:
+    def cloudTranslation_api(self, query_text: str, from_language: str = 'auto', to_language: str = 'en', **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://www.cloudtranslation.com/#/translate
         :param query_text: str, must.
@@ -4081,9 +4333,10 @@ class CloudYi(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
             _ = self.session.get(self.get_cookie_url, headers=self.api_headers, timeout=timeout, proxies=proxies)
@@ -4099,11 +4352,12 @@ class CloudYi(Tse):
             from_language = r.json()['data']['language']
         from_language, to_language = from_language.lower(), to_language.lower()  # must lower
         from_language, to_language = self.check_language(from_language, to_language, self.language_map, output_zh=self.output_zh,
-                                                         output_en_translator='cloudYi', output_en=self.output_en)
+                                                         output_en_translator='cloudTranslation', output_en=self.output_en)
 
         domains = self.langpair_domain.get(f'{from_language}_{to_language}')
         if not domains:
             raise TranslatorError
+
         if use_domain not in domains:
             use_domain = domains[0]
 
@@ -4121,9 +4375,120 @@ class CloudYi(Tse):
         return data if is_detail_result else data['data']['translation']
 
 
+class cloudTranslationV2(Tse):
+    def __init__(self):
+        super().__init__()
+        self.begin_time = time.time()
+        self.host_url = 'https://online.cloudtranslation.com'
+        self.api_url = 'https://online.cloudtranslation.com/api/v1.0/request_translate/try_translate'
+        self.get_lang_url = 'https://online.cloudtranslation.com/api/v1.0/site/get_all_language_and_domain'
+        self.detect_lang_url = 'https://online.cloudtranslation.com/api/v1.0/request_translate/langid'
+        self.get_cookie_url = 'https://online.cloudtranslation.com/api/v1.0/site/sites_language_list'
+        self.host_headers = self.get_headers(self.host_url, if_api=False, if_referer_for_host=True)
+        self.api_headers = self.get_headers(self.host_url, if_api=True, if_json_for_api=True)
+        self.session = None
+        self.language_map = None
+        self.langpair_domain = None
+        self.professional_field = None
+        self.query_count = 0
+        self.output_zh = 'zh-cn'
+        self.output_en = 'en-us'
+        self.output_auto = 'all'
+        self.input_limit = int(5e3)
+        self.default_from_language = self.output_zh
+
+    @Tse.debug_language_map
+    def get_language_map(self, d_lang_map: dict, **kwargs: LangMapKwargsType) -> dict:
+        return {k: [it['language_code'] for it in item] for k, item in d_lang_map['data']['src_to_tgt'].items()}
+
+    def get_langpair_domain(self, d_lang_map: dict) -> dict:
+        return {k: [it['domain_code'] for it in item] for k, item in d_lang_map['data']['language_pair_to_domain'].items()}
+
+    def get_professional_field_list(self, d_lang_map: dict) -> set:
+        return {it['domain_code'] for _, item in d_lang_map['data']['language_pair_to_domain'].items() for it in item}
+
+    @Tse.time_stat
+    @Tse.check_query
+    def cloudTranslation_api(self, query_text: str, from_language: str = 'auto', to_language: str = 'en', **kwargs: ApiKwargsType) -> Union[str, dict]:
+        """
+        https://online.cloudtranslation.com
+        :param query_text: str, must.
+        :param from_language: str, default 'auto'.
+        :param to_language: str, default 'en'.
+        :param **kwargs:
+                :param timeout: float, default None.
+                :param proxies: dict, default None.
+                :param sleep_seconds: float, default 0.
+                :param is_detail_result: bool, default False.
+                :param if_ignore_limit_of_length: bool, default False.
+                :param limit_of_length: int, default 20000.
+                :param if_ignore_empty_query: bool, default False.
+                :param update_session_after_freq: int, default 1000.
+                :param update_session_after_seconds: float, default 1500.
+                :param if_show_time_stat: bool, default False.
+                :param show_time_stat_precision: int, default 2.
+                :param if_print_warning: bool, default True.
+                :param professional_field: str, default 'general'.
+        :return: str or dict
+        """
+
+        use_domain = kwargs.get('professional_field', 'general')
+        timeout = kwargs.get('timeout', None)
+        proxies = kwargs.get('proxies', None)
+        sleep_seconds = kwargs.get('sleep_seconds', 0)
+        if_print_warning = kwargs.get('if_print_warning', True)
+        is_detail_result = kwargs.get('is_detail_result', False)
+        update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
+        update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
+        self.check_input_limit(query_text, self.input_limit)
+
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
+        not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
+        if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
+            self.session = requests.Session()
+            _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
+            _ = self.session.get(self.get_cookie_url, headers=self.api_headers, timeout=timeout, proxies=proxies)
+            d_lang_map = self.session.get(self.get_lang_url, headers=self.api_headers, timeout=timeout, proxies=proxies).json()
+            debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
+            self.language_map = self.get_language_map(d_lang_map, **debug_lang_kwargs)
+            self.langpair_domain = self.get_langpair_domain(d_lang_map)
+            self.professional_field = self.get_professional_field_list(d_lang_map)
+
+        if from_language == 'auto':
+            payload = {'text': query_text}
+            r = self.session.post(self.detect_lang_url, json=payload, headers=self.api_headers, timeout=timeout, proxies=proxies)
+            from_language = r.json()['data']['language']
+        from_language, to_language = from_language.lower(), to_language.lower()  # must lower
+        from_language, to_language = self.check_language(from_language, to_language, self.language_map, output_zh=self.output_zh,
+                                                         output_en_translator='cloudTranslation', output_en=self.output_en)
+
+        domains = self.langpair_domain.get(f'{from_language}_{to_language}')
+        if not domains:
+            raise TranslatorError
+
+        if use_domain not in domains:
+            use_domain = domains[0]
+
+        payload = {
+            'type': 'text',
+            'text': query_text,
+            'domain': use_domain,
+            'src_lang': from_language,
+            'tgt_lang': to_language,
+        }
+        r = self.session.post(self.api_url, json=payload, headers=self.api_headers, timeout=timeout, proxies=proxies)
+        r.raise_for_status()
+        data = r.json()
+        time.sleep(sleep_seconds)
+        self.query_count += 1
+        return data if is_detail_result else json.loads(data['data']['data'])['translation']
+
+
 class SysTran(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.home_url = 'https://www.systran.net'
         self.host_url = 'https://www.systran.net/translate/'
         self.api_url = 'https://api-translate.systran.net/translation/text/translate'
@@ -4206,9 +4571,10 @@ class SysTran(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
             self.client_data = self.get_client_data(self.get_client_url, self.session, self.host_headers, timeout, proxies)
@@ -4262,6 +4628,7 @@ class SysTran(Tse):
 class TranslateMe(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://translateme.network/'
         self.api_url = 'https://translateme.network/wp-admin/admin-ajax.php'
         self.host_headers = self.get_headers(self.host_url, if_api=False, if_referer_for_host=True)
@@ -4317,9 +4684,10 @@ class TranslateMe(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
@@ -4385,9 +4753,10 @@ class TranslateMe(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
@@ -4410,6 +4779,7 @@ class TranslateMe(Tse):
 class Elia(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.host_url = 'https://elia.eus/translator'
         self.api_url = 'https://elia.eus/ajax/translate_string'
         self.detect_lang_url = 'https://elia.eus/ajax/language_detection'
@@ -4475,9 +4845,10 @@ class Elia(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             host_html = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies).text
             self.token = re.compile('"csrfmiddlewaretoken": "(.*?)"').search(host_html).group(1)
@@ -4525,6 +4896,7 @@ class Elia(Tse):
 class LanguageWire(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.home_url = 'https://jwt.languagewire.com'
         self.host_url = 'https://www.languagewire.com/en/technology/languagewire-translate'
         self.api_url = 'https://lwt.languagewire.com/f/api/v1/translations/text'
@@ -4595,9 +4967,10 @@ class LanguageWire(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
             self.lwt_data = self.get_lwt_data()
@@ -4628,6 +5001,7 @@ class LanguageWire(Tse):
 class Judic(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.home_url = 'https://judic.io'
         self.host_url = 'https://judic.io/en/translate'
         self.api_url = 'https://judic.io/translate/text'
@@ -4678,9 +5052,10 @@ class Judic(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
@@ -4706,6 +5081,7 @@ class Judic(Tse):
 class Yeekit(Tse):
     def __init__(self):
         super().__init__()
+        self.begin_time = time.time()
         self.home_url = 'https://www.yeekit.com'
         self.host_url = 'https://www.yeekit.com/site/translate'
         self.api_url = 'https://www.yeekit.com/site/dotranslate'
@@ -4758,9 +5134,10 @@ class Yeekit(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count < update_session_after_freq else 0
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
             self.session = requests.Session()
             _ = self.session.get(self.host_url, headers=self.host_headers, timeout=timeout, proxies=proxies)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
@@ -4787,7 +5164,9 @@ class Yeekit(Tse):
 class TranslatorsServer:
     def __init__(self):
         self.cpu_cnt = os.cpu_count()
-        self.server_region = GuestSeverRegion().get_server_region
+        self._region = Region()
+        self.get_region_of_server = self._region.get_region_of_server
+        self.server_region = self.get_region_of_server(if_print_region=False)
         self._alibaba = AlibabaV2()
         self.alibaba = self._alibaba.alibaba_api
         self._apertium = Apertium()
@@ -4800,8 +5179,8 @@ class TranslatorsServer:
         self.bing = self._bing.bing_api
         self._caiyun = Caiyun()
         self.caiyun = self._caiyun.caiyun_api
-        self._cloudYi = CloudYi()
-        self.cloudYi = self._cloudYi.cloudYi_api
+        self._cloudTranslation = cloudTranslationV2()
+        self.cloudTranslation = self._cloudTranslation.cloudTranslation_api
         self._deepl = Deepl()
         self.deepl = self._deepl.deepl_api
         self._elia = Elia()
@@ -4822,7 +5201,7 @@ class TranslatorsServer:
         self.languageWire = self._languageWire.languageWire_api
         self._lingvanex = Lingvanex()
         self.lingvanex = self._lingvanex.lingvanex_api
-        self._niutrans = Niutrans()
+        self._niutrans = NiutransV2()
         self.niutrans = self._niutrans.niutrans_api
         self._mglip = Mglip()
         self.mglip = self._mglip.mglip_api
@@ -4860,14 +5239,25 @@ class TranslatorsServer:
         self.yeekit = self._yeekit.yeekit_api
         self._youdao = YoudaoV3()
         self.youdao = self._youdao.youdao_api
+        self._translators_dict = {
+            'alibaba': self._alibaba, 'apertium': self._apertium, 'argos': self._argos, 'baidu': self._baidu, 'bing': self._bing,
+            'caiyun': self._caiyun, 'cloudTranslation': self._cloudTranslation, 'deepl': self._deepl, 'elia': self._elia, 'google': self._google,
+            'iciba': self._iciba, 'iflytek': self._iflytek, 'iflyrec': self._iflyrec, 'itranslate': self._itranslate, 'judic': self._judic,
+            'languageWire': self._languageWire, 'lingvanex': self._lingvanex, 'niutrans': self._niutrans, 'mglip': self._mglip, 'mirai': self._mirai,
+            'modernMt': self._modernMt, 'myMemory': self._myMemory, 'papago': self._papago, 'qqFanyi': self._qqFanyi, 'qqTranSmart': self._qqTranSmart, 
+            'reverso': self._reverso, 'sogou': self._sogou, 'sysTran': self._sysTran, 'tilde': self._tilde, 'translateCom': self._translateCom, 
+            'translateMe': self._translateMe, 'utibet': self._utibet, 'volcEngine': self._volcEngine, 'yandex': self._yandex, 'yeekit': self._yeekit, 
+            'youdao': self._youdao,
+        }
         self.translators_dict = {
             'alibaba': self.alibaba, 'apertium': self.apertium, 'argos': self.argos, 'baidu': self.baidu, 'bing': self.bing,
-            'caiyun': self.caiyun, 'cloudYi': self.cloudYi, 'deepl': self.deepl, 'elia': self.elia, 'google': self.google,
+            'caiyun': self.caiyun, 'cloudTranslation': self.cloudTranslation, 'deepl': self.deepl, 'elia': self.elia, 'google': self.google,
             'iciba': self.iciba, 'iflytek': self.iflytek, 'iflyrec': self.iflyrec, 'itranslate': self.itranslate, 'judic': self.judic,
-            'languageWire': self.languageWire, 'lingvanex': self.lingvanex, 'niutrans': self.niutrans, 'mglip': self.mglip, 'modernMt': self.modernMt,
-            'myMemory': self.myMemory, 'papago': self.papago, 'qqFanyi': self.qqFanyi, 'qqTranSmart': self.qqTranSmart, 'reverso': self.reverso,
-            'sogou': self.sogou, 'sysTran': self.sysTran, 'tilde': self.tilde, 'translateCom': self.translateCom, 'translateMe': self.translateMe,
-            'utibet': self.utibet, 'volcEngine': self.volcEngine, 'yandex': self.yandex, 'yeekit': self.yeekit, 'youdao': self.youdao,
+            'languageWire': self.languageWire, 'lingvanex': self.lingvanex, 'niutrans': self.niutrans, 'mglip': self.mglip, 'mirai': self.mirai,
+            'modernMt': self.modernMt, 'myMemory': self.myMemory, 'papago': self.papago, 'qqFanyi': self.qqFanyi, 'qqTranSmart': self.qqTranSmart,
+            'reverso': self.reverso, 'sogou': self.sogou, 'sysTran': self.sysTran, 'tilde': self.tilde, 'translateCom': self.translateCom,
+            'translateMe': self.translateMe, 'utibet': self.utibet, 'volcEngine': self.volcEngine, 'yandex': self.yandex, 'yeekit': self.yeekit,
+            'youdao': self.youdao,
         }
         self.translators_pool = list(self.translators_dict.keys())
         self.not_en_langs = {'utibet': 'ti', 'mglip': 'mon'}
@@ -4893,16 +5283,16 @@ class TranslatorsServer:
         :param if_use_preacceleration: bool, default False.
         :param **kwargs:
                 :param is_detail_result: bool, default False.
-                :param professional_field: str, support alibaba(), baidu(), caiyun(), cloudYi(), elia(), sysTran(), youdao(), volcEngine() only.
+                :param professional_field: str, support alibaba(), baidu(), caiyun(), cloudTranslation(), elia(), sysTran(), youdao(), volcEngine() only.
                 :param timeout: float, default None.
                 :param proxies: dict, default None.
                 :param sleep_seconds: float, default 0.
                 :param update_session_after_freq: int, default 1000.
                 :param update_session_after_seconds: float, default 1500.
                 :param if_use_cn_host: bool, default False. Support google(), bing() only.
-                :param reset_host_url: str, default None. Support google(), argos(), yandex() only.
+                :param reset_host_url: str, default None. Support google(), yandex() only.
                 :param if_check_reset_host_url: bool, default True. Support google(), yandex() only.
-                :param if_ignore_empty_query: bool, default False.
+                :param if_ignore_empty_query: bool, default True.
                 :param if_ignore_limit_of_length: bool, default False.
                 :param limit_of_length: int, default 20000.
                 :param if_show_time_stat: bool, default False.
@@ -4926,7 +5316,7 @@ class TranslatorsServer:
                        translator: str = 'bing',
                        from_language: str = 'auto',
                        to_language: str = 'en',
-                       n_jobs: int = -1,
+                       n_jobs: int = 1,
                        if_use_preacceleration: bool = False,
                        **kwargs: ApiKwargsType,
                        ) -> str:
@@ -4936,11 +5326,11 @@ class TranslatorsServer:
         :param translator: str, default 'bing'.
         :param from_language: str, default 'auto'.
         :param to_language: str, default 'en'.
-        :param n_jobs: int, default -1, means os.cpu_cnt().
+        :param n_jobs: int, default 1. -1 means os.cpu_cnt().
         :param if_use_preacceleration: bool, default False.
         :param **kwargs:
                 :param is_detail_result: bool, default False.
-                :param professional_field: str, support alibaba(), baidu(), caiyun(), cloudYi(), elia(), sysTran(), youdao(), volcEngine() only.
+                :param professional_field: str, support alibaba(), baidu(), caiyun(), cloudTranslation(), elia(), sysTran(), youdao(), volcEngine() only.
                 :param timeout: float, default None.
                 :param proxies: dict, default None.
                 :param sleep_seconds: float, default 0.
@@ -4949,7 +5339,7 @@ class TranslatorsServer:
                 :param if_use_cn_host: bool, default False. Support google(), bing() only.
                 :param reset_host_url: str, default None. Support google(), argos(), yandex() only.
                 :param if_check_reset_host_url: bool, default True. Support google(), yandex() only.
-                :param if_ignore_empty_query: bool, default False.
+                :param if_ignore_empty_query: bool, default True.
                 :param if_ignore_limit_of_length: bool, default False.
                 :param limit_of_length: int, default 20000.
                 :param if_show_time_stat: bool, default False.
@@ -4969,14 +5359,14 @@ class TranslatorsServer:
         def _translate_text(sentence: str) -> Tuple[str, str]:
             return sentence, self.translators_dict[translator](query_text=sentence, from_language=from_language, to_language=to_language, **kwargs)
 
-        pattern = re.compile("(?:^|(?<=>))([\\s\\S]*?)(?:(?=<)|$)")  # TODO: <code></code> <div class="codetext notranslate">
+        pattern = re.compile('>([\\s\\S]*?)<')  # not perfect
         sentence_list = list(set(pattern.findall(html_text)))
 
         n_jobs = self.cpu_cnt if n_jobs <= 0 else n_jobs
         with pathos.multiprocessing.ProcessPool(n_jobs) as pool:
             result_list = pool.map(_translate_text, sentence_list)
 
-        result_dict = {text: ts_text for text, ts_text in result_list}
+        result_dict = {text: f'>{ts_text}<' for text, ts_text in result_list}
         _get_result_func = lambda k: result_dict.get(k.group(1), '')
         return pattern.sub(repl=_get_result_func, string=html_text)
 
@@ -4993,6 +5383,14 @@ class TranslatorsServer:
             if_show_time_stat=if_show_time_stat
         )
         return result
+    
+    def get_languages(self, translator: str = 'bing'):
+        language_map = self._translators_dict[translator].language_map
+        if language_map:
+            return language_map
+
+        _ = self._test_translate(_ts=translator)
+        return self._translators_dict[translator].language_map
 
     def preaccelerate(self, timeout: Optional[float] = None, if_show_time_stat: bool = True, **kwargs: str) -> dict:
         if self.pre_acceleration_label > 0:
@@ -5052,8 +5450,8 @@ _bing = tss._bing
 bing = tss.bing
 _caiyun = tss._caiyun
 caiyun = tss.caiyun
-_cloudYi = tss._cloudYi
-cloudYi = tss.cloudYi
+_cloudTranslation = tss._cloudTranslation
+cloudTranslation = tss.cloudTranslation
 _deepl = tss._deepl
 deepl = tss.deepl
 _elia = tss._elia
@@ -5116,8 +5514,11 @@ youdao = tss.youdao
 translate_text = tss.translate_text
 translate_html = tss.translate_html
 translators_pool = tss.translators_pool
+get_languages = tss.get_languages
+get_region_of_server = tss.get_region_of_server
 
 preaccelerate = tss.preaccelerate
 speedtest = tss.speedtest
 preaccelerate_and_speedtest = tss.preaccelerate_and_speedtest
 # sys.stderr.write(f'Support translators {translators_pool} only.\n')
+
