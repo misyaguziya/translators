@@ -28,7 +28,7 @@ under certain conditions; type `show c' for details.
 
 import os
 import re
-import sys
+# import sys
 import time
 import json
 import uuid
@@ -37,7 +37,7 @@ import base64
 import random
 import hashlib
 import datetime
-import warnings
+# import warnings
 import functools
 import urllib.parse
 from typing import Optional, Union, Tuple, List
@@ -180,9 +180,9 @@ class Tse:
 
     @staticmethod
     def warning_auto_lang(translator: str, default_from_language: str, if_print_warning: bool = True) -> str:
-        if if_print_warning:
-            warn_tips = f'Unsupported [from_language=auto({default_from_language} instead)] with [{translator}]!'
-            warnings.warn(f'{warn_tips} Please specify it.')
+        # if if_print_warning:
+        #     warn_tips = f'Unsupported [from_language=auto({default_from_language} instead)] with [{translator}]!'
+        #     warnings.warn(f'{warn_tips} Please specify it.')
         return default_from_language
 
     @staticmethod
@@ -214,8 +214,8 @@ class Tse:
             try:
                 return func(*args, **kwargs)
             except TranslatorError as e:
-                if kwargs.get('if_print_warning', True):
-                    warnings.warn(f'GetLanguageMapError: {str(e)}.\nThe function make_temp_language_map() works.')
+                # if kwargs.get('if_print_warning', True):
+                #     warnings.warn(f'GetLanguageMapError: {str(e)}.\nThe function make_temp_language_map() works.')
                 return make_temp_language_map(kwargs.get('from_language'), kwargs.get('to_language'), kwargs.get('default_from_language'))
         return _wrapper
     
@@ -243,7 +243,7 @@ class Tse:
                 raise TranslatorError('The length of `query_text` exceeds the limit.')
             else:
                 if qt_length >= limit_of_length:
-                    warnings.warn(f'The length of `query_text` is {qt_length}, above {limit_of_length}.')
+                    # warnings.warn(f'The length of `query_text` is {qt_length}, above {limit_of_length}.')
                     return query_text[:limit_of_length - 1]
             return query_text
 
@@ -320,10 +320,10 @@ class GuestSeverRegion(Tse):
         except requests.exceptions.ConnectionError:
             raise TranslatorError('Unable to connect the Internet.\n\n')
         except:
-            warnings.warn('Unable to find server backend.\n\n')
-            region = input('Please input your server region need to visit:\neg: [Qatar, China, ...]\n\n')
+            # warnings.warn('Unable to find server backend.\n\n')
+            # region = input('Please input your server region need to visit:\neg: [Qatar, China, ...]\n\n')
             # sys.stderr.write(f'Using region {region} server backend.\n\n')
-            return 'CN' if region == 'China' else 'EN'
+            return 'EN'
 
 
 class GoogleV1(Tse):
