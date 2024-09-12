@@ -460,3 +460,6 @@ stronger baidu().  #155
 
 5.9.2
 fix yandex().  #94
+
+5.9.2.1
+fix papago()
