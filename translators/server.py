@@ -3260,7 +3260,7 @@ class Papago(Tse):
         self.web_api_url = 'https://papago.naver.net/website'
         self.lang_detect_url = 'https://papago.naver.com/apis/langs/dect'
         self.language_url = None
-        self.language_url_pattern = '/home.(.*?).chunk.js'
+        self.language_url_pattern = '/vendors~home.(.*?).chunk.js'
         self.host_headers = self.get_headers(self.host_url, if_api=False)
         self.api_headers = self.get_headers(self.host_url, if_api=True, if_json_for_api=False)
         self.language_map = None
