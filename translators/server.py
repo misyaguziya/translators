@@ -2789,10 +2789,10 @@ class AlibabaV2(Tse):
 
         not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
-        if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+        if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
             self.language_map = self.get_language_map(host_html, **debug_lang_kwargs)
@@ -2805,9 +2805,9 @@ class AlibabaV2(Tse):
             'tgtLang': (None, to_language),
             'domain': (None, self.professional_field[0]),
         }  # Content-Type: multipart/form-data
-        r = await self.session.post(self.api_url, files=files_data, headers=self.api_headers, timeout=timeout)
+        r = await self.async_session.post(self.api_url, files=files_data, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
-        data = await r.json()
+        data = r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['data']['translateText']
@@ -2979,10 +2979,10 @@ class Bing(Tse):
         not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (
-                self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.tk and self.ig_iid):
+                self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.tk and self.ig_iid):
             self.begin_time = time.time()
-            self.session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
             self.tk = self.get_tk(host_html)
             self.ig_iid = self.get_ig_iid(host_html)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
@@ -3001,16 +3001,16 @@ class Bing(Tse):
         payload = {**payload, **self.tk}
         api_url_param = f'?isVertical=1&&IG={self.ig_iid["ig"]}&IID={self.ig_iid["iid"]}'
         api_url = ''.join([self.api_url, api_url_param])
-        r = await self.session.post(api_url, headers=self.host_headers, data=payload, timeout=timeout)
+        r = await self.async_session.post(api_url, headers=self.host_headers, data=payload, timeout=timeout)
         r.raise_for_status()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
 
         try:
-            data = await r.json()
+            data = r.json()
             return data[0] if is_detail_result else data[0]['translations'][0]['text']
         except Exception:  # 122
-            data_html = await r.text
+            data_html = r.text
             et = lxml_etree.HTML(data_html)
             ss = et.xpath('//*/textarea/text()')
             return {'data': ss} if is_detail_result else ss[-1]
@@ -3045,6 +3045,23 @@ class Sogou(Tse):
             lang_html = ss.get(self.get_language_url, headers=self.host_headers, timeout=timeout).text
         except:
             lang_html = ss.get(lang_old_url, headers=self.host_headers, timeout=timeout).text
+
+        lang_list_str = re.compile('"ALL":\\[(.*?)]').search(lang_html).group().replace('!0', '1').replace('!1', '0')[
+            6:]
+        lang_item_list = json.loads(lang_list_str)
+        lang_list = [item['lang'] for item in lang_item_list if item['play'] == 1]
+        return {}.fromkeys(lang_list, lang_list)
+
+    @Tse.debug_language_map
+    async def get_language_map_async(self, host_html: str, lang_old_url: str, ss: AsyncSessionType, timeout: Optional[float],
+                         **kwargs: LangMapKwargsType) -> dict:
+        try:
+            if not self.get_language_url:
+                lang_url_path = re.compile(self.get_language_pattern).search(host_html).group()
+                self.get_language_url = ''.join(['https:', lang_url_path])
+            lang_html = (await ss.get(self.get_language_url, headers=self.host_headers, timeout=timeout)).text
+        except:
+            lang_html =(await ss.get(lang_old_url, headers=self.host_headers, timeout=timeout)).text
 
         lang_list_str = re.compile('"ALL":\\[(.*?)]').search(lang_html).group().replace('!0', '1').replace('!1', '0')[
             6:]
@@ -3163,23 +3180,23 @@ class Sogou(Tse):
 
         not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
-        if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.uuid):
+        if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.uuid):
             self.uuid = str(uuid.uuid4())
             self.begin_time = time.time()
-            self.session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = self.get_language_map(host_html, self.get_language_old_url, self.session, timeout,
+            self.language_map = await self.get_language_map_async(host_html, self.get_language_old_url, self.async_session, timeout,
                                                       **debug_lang_kwargs)
 
         from_language, to_language = self.check_language(from_language, to_language, self.language_map,
                                                          output_zh=self.output_zh)
 
         payload = self.get_form(query_text, from_language, to_language, self.uuid)
-        r = await self.session.post(self.api_url, headers=self.api_headers, data=payload, timeout=timeout)
+        r = await self.async_session.post(self.api_url, headers=self.api_headers, data=payload, timeout=timeout)
         r.raise_for_status()
-        data = await r.json()
+        data = r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['data']['translate']['dit']
@@ -3224,6 +3241,13 @@ class Caiyun(Tse):
     def get_language_map(self, lang_url: str, ss: SessionType, headers: dict, timeout: Optional[float],
                          **kwargs: LangMapKwargsType) -> dict:
         lang_dict = ss.get(lang_url, headers=headers, timeout=timeout).json()
+        lang_list = sorted([item['code'] for item in lang_dict['supported_translation_languages']])
+        return {}.fromkeys(lang_list, lang_list)
+
+    @Tse.debug_language_map
+    async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
+                         **kwargs: LangMapKwargsType) -> dict:
+        lang_dict = (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
         lang_list = sorted([item['code'] for item in lang_dict['supported_translation_languages']])
         return {}.fromkeys(lang_list, lang_list)
 
@@ -3379,20 +3403,32 @@ class Caiyun(Tse):
         not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (
-                self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.tk and self.jwt):
+                self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.tk and self.jwt):
             self.begin_time = time.time()
-            self.session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
             js_url_path = re.compile(self.get_js_pattern).search(host_html).group()
             self.get_js_url = ''.join([self.host_url, js_url_path])
-            js_html = await (await self.session.get(self.get_js_url, headers=self.host_headers, timeout=timeout)).text
+            js_html = (await self.async_session.get(self.get_js_url, headers=self.host_headers, timeout=timeout)).text
             # self.tk = self.get_tk(js_html)
-            self.jwt = self.get_jwt(js_html)
-            self.browser_id = str(uuid.uuid4())
+            self.api_headers.update({
+                "app-name": "xiaoyi",
+                "device-id": self.browser_id,
+                "os-type": "web",
+                "os-version": "",
+                "version": "4.6.0",
+                "Authorization": "bearer",
+                "X-Authorization": self.tk,
+            })
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = self.get_language_map(self.language_url, self.session, self.api_headers, timeout,
+            self.language_map = await self.get_language_map_async(self.get_language_url, self.async_session, self.api_headers, timeout,
                                                       **debug_lang_kwargs)
+
+            jwt_payload = {'browser_id': self.browser_id}
+            jwt_r = await self.async_session.post(self.get_jwt_url, json=jwt_payload, headers=self.api_headers, timeout=timeout)
+            self.jwt = jwt_r.json()['jwt']
+            self.api_headers.update({"T-Authorization": self.jwt})
 
         from_language, to_language = self.check_language(from_language, to_language, self.language_map,
                                                          output_zh=self.output_zh)
@@ -3413,10 +3449,10 @@ class Caiyun(Tse):
         if from_language == 'auto':
             payload.update({'detect': 'true'})
 
-        # _ = await self.session.options(self.api_url, headers=self.host_headers, timeout=timeout)
-        r = await self.session.post(self.api_url, headers=self.api_headers, json=payload, timeout=timeout)
+        # _ = await self.async_session.options(self.api_url, headers=self.host_headers, timeout=timeout)
+        r = await self.async_session.post(self.api_url, headers=self.api_headers, json=payload, timeout=timeout)
         r.raise_for_status()
-        data = await r.json()
+        data = r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else '\n'.join([self.decrypt(item) for item in data['target']])
@@ -3909,8 +3945,21 @@ class Argos(Tse):
         lang_list = sorted([lang['code'] for lang in lang_list])
         return {}.fromkeys(lang_list, lang_list)
 
+    @Tse.debug_language_map
+    async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
+                         **kwargs: LangMapKwargsType) -> dict:
+        lang_list = (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
+        lang_list = sorted([lang['code'] for lang in lang_list])
+        return {}.fromkeys(lang_list, lang_list)
+
     def get_secret(self, secret_url: str, ss: SessionType, headers: dict, timeout: Optional[float]) -> str:
         js_html = ss.get(secret_url, headers=headers, timeout=timeout).text
+        api_secret = re.compile('apiSecret: "(.*?)"').findall(js_html)[0]
+        secret = base64.b64decode(api_secret.encode()).decode()
+        return secret
+
+    async def get_secret_async(self, secret_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float]) -> str:
+        js_html = (await ss.get(secret_url, headers=headers, timeout=timeout)).text
         api_secret = re.compile('apiSecret: "(.*?)"').findall(js_html)[0]
         secret = base64.b64decode(api_secret.encode()).decode()
         return secret
@@ -4018,15 +4067,16 @@ class Argos(Tse):
 
         not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
-        if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.secret):
+        if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.secret):
             self.begin_time = time.time()
-            self.session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
-            self.secret = self.get_secret(host_html)
-            lang_data = await (
-                await self.session.get(self.language_url, headers=self.language_headers, timeout=timeout)).json()
-            self.language_map = {item['code']: item['targets'] for item in lang_data}
+            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
+            self.secret = await self.get_secret_async(self.secret_url, self.async_session, self.host_headers, timeout)
+            debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
+                                                       if_print_warning)
 
+            self.language_map = await self.get_language_map_async(self.language_url, self.async_session, self.language_headers, timeout,
+                                                      **debug_lang_kwargs)
         from_language, to_language = self.check_language(from_language, to_language, self.language_map,
                                                          output_zh=self.output_zh)
 
@@ -4039,9 +4089,9 @@ class Argos(Tse):
             'api_key': '',
             'secret': self.secret,
         }
-        r = await self.session.post(self.api_url, headers=self.api_headers, json=payload, timeout=timeout)
+        r = await self.async_session.post(self.api_url, headers=self.api_headers, json=payload, timeout=timeout)
         r.raise_for_status()
-        data = await r.json()
+        data = r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['translatedText']
@@ -4826,9 +4876,9 @@ class TranslateCom(Tse):
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
             self.session = Tse.get_async_client_session(http_client, proxies)
-            _ = await (await self.session.get(self.host_url, headers=self.host_headers, timeout=timeout))
+            _ = (await self.session.get(self.host_url, headers=self.host_headers, timeout=timeout))
             lang_r = await self.session.get(self.language_url, headers=self.host_headers, timeout=timeout)
-            self.language_description = await lang_r.json()
+            self.language_description =  lang_r.json()
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
             self.language_map = self.get_language_map(self.language_description, **debug_lang_kwargs)
@@ -4837,7 +4887,7 @@ class TranslateCom(Tse):
             detect_form = {'text_to_translate': query_text}
             r_detect = await self.session.post(self.lang_detect_url, data=detect_form, headers=self.api_headers,
                                                timeout=timeout)
-            from_language = (await r_detect.json())['language']
+            from_language = r_detect.json()['language']
 
         from_language, to_language = self.check_language(from_language, to_language, self.language_map,
                                                          output_zh=self.output_zh)
@@ -4850,7 +4900,7 @@ class TranslateCom(Tse):
         }
         r = await self.session.post(self.api_url, data=payload, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
-        data = await r.json()
+        data = r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['translated_text']
@@ -4975,7 +5025,7 @@ class Utibet(Tse):
         if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
             self.session = Tse.get_async_client_session(http_client, proxies)
-            _ = await (await self.session.get(self.host_url, headers=self.host_headers, timeout=timeout))
+            _ = (await self.session.get(self.host_url, headers=self.host_headers, timeout=timeout))
 
         if from_language == 'auto':
             from_language = self.warning_auto_lang('utibet', self.default_from_language, if_print_warning)
@@ -4988,7 +5038,7 @@ class Utibet(Tse):
         }
         r = await self.session.post(self.api_url, headers=self.api_headers, data=payload, timeout=timeout)
         r.raise_for_status()
-        data_html = await r.text
+        data_html = r.text
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return {'data_html': data_html} if is_detail_result else self.parse_result(data_html)
@@ -5159,7 +5209,7 @@ class Papago(Tse):
             self.session = Tse.get_async_client_session(http_client, proxies)
             host_html = (await self.session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
             self.language_url = self.host_url + re.search(self.language_url_pattern, host_html).group()
-            lang_html = await (
+            lang_html =  (
                 await self.session.get(self.language_url, headers=self.host_headers, timeout=timeout)).text
             self.auth_key = self.get_auth_key(lang_html)
             self.device_id = str(uuid.uuid4())
@@ -5179,7 +5229,7 @@ class Papago(Tse):
             detect_form = urllib.parse.urlencode({'query': query_text})
             r_detect = await self.session.post(self.lang_detect_url, headers=detect_headers, data=detect_form,
                                                timeout=timeout)
-            from_language = (await r_detect.json())['langCode']
+            from_language = r_detect.json()['langCode']
 
         trans_time = self.get_timestamp()
         trans_auth = self.get_authorization(self.api_url, self.auth_key, self.device_id, trans_time)
@@ -5196,7 +5246,7 @@ class Papago(Tse):
         payload = urllib.parse.urlencode(payload)
         r = await self.session.post(self.api_url, headers=trans_headers, data=payload, timeout=timeout)
         r.raise_for_status()
-        data = await r.json()
+        data = r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['translatedText']
