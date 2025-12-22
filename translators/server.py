@@ -63,7 +63,7 @@ AsyncSessionType = Union[niquests.async_session.AsyncSession, httpx.AsyncClient]
 AsyncResponseType = Union[niquests.models.AsyncResponse, httpx.Response]
 
 __all__ = [
-    'translate_text', 'translate_html', 'translators_pool',
+    'translate_text', 'translate_html', 'translators_pool', 'translate_text_async',
 
     'alibaba', 'apertium', 'argos', 'baidu', 'bing',
     'caiyun', 'cloudTranslation', 'deepl', 'elia', 'google',
@@ -99,8 +99,8 @@ class Tse:
                                              'translateMe')
         self.auto_pool = ('auto', 'detect', 'auto-detect', 'all')
         self.zh_pool = ('zh', 'zh-CN', 'zh-cn', 'zh-CHS', 'zh-Hans', 'zh-Hans_CN', 'cn', 'chi', 'Chinese')
-        self.session = None
-        self.async_session = None
+        self.session: Optional[SessionType] = None
+        self.async_session: Optional[AsyncSessionType] = None
 
     @staticmethod
     def time_stat(func):
@@ -3748,6 +3748,20 @@ class YandexV1(Tse):
         lang = r.json().get('lang')
         return lang if lang else 'en'
 
+    async def detect_language_async(self, ss: AsyncSessionType, query_text: str, sid: str, yu: str, headers: dict,
+                        timeout: Optional[float]) -> str:
+        params = {
+            'sid': sid,
+            'yu': yu,
+            'text': query_text,
+            'srv': 'tr-text',
+            'hint': 'en,ru',
+            'options': 1
+        }
+        r = await ss.get(self.detect_language_url, params=params, headers=headers, timeout=timeout)
+        lang = r.json().get('lang')
+        return lang if lang else 'en'
+
     @Tse.uncertified
     @Tse.time_stat
     @Tse.check_query
@@ -3908,7 +3922,7 @@ class YandexV1(Tse):
         from_language, to_language = self.check_language(from_language, to_language, self.language_map,
                                                          output_zh=self.output_zh)
         if from_language == 'auto':
-            from_language = self.detect_language(self.async_session, query_text, self.sid, self.yu, self.api_headers, timeout)
+            from_language = await self.detect_language_async(self.async_session, query_text, self.sid, self.yu, self.api_headers, timeout)
 
         params = {
             'id': f'{self.sid}-{self.query_count}-0',
@@ -3959,10 +3973,26 @@ class YandexV2(Tse):
         data = r.json()
         return data
 
+    async def get_request_data_async(self, ss: AsyncSessionType, method: str, params: dict, timeout: Optional[float]) -> dict:
+        url = f'{self.api_url}/{method}'
+        params = {**{'srv': self.srv}, **params}
+        r = await ss.post(url=url, params=params, data=self.api_payload, headers=self.api_headers, timeout=timeout)
+        r.raise_for_status()
+        data = r.json()
+        return data
+
     @Tse.debug_language_map
     def get_language_map(self, ss: SessionType, timeout: Optional[float], **kwargs: LangMapKwargsType) -> dict:
         lang_map = {}
         lang_data = self.get_request_data(ss=ss, method='getLangs', params={}, timeout=timeout)
+        for k, v in [lang_pair.split('-') for lang_pair in lang_data['dirs']]:
+            lang_map.setdefault(k, []).append(v)
+        return lang_map
+
+    @Tse.debug_language_map
+    async def get_language_map_async(self, ss: AsyncSessionType, timeout: Optional[float], **kwargs: LangMapKwargsType) -> dict:
+        lang_map = {}
+        lang_data = await self.get_request_data_async(ss=ss, method='getLangs', params={}, timeout=timeout)
         for k, v in [lang_pair.split('-') for lang_pair in lang_data['dirs']]:
             lang_map.setdefault(k, []).append(v)
         return lang_map
@@ -4066,21 +4096,26 @@ class YandexV2(Tse):
 
         not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
-        if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+        if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.session = Tse.get_async_client_session(http_client, proxies)
+            self.async_session = Tse.get_async_client_session(http_client, proxies)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = self.get_language_map(self.session, timeout, **debug_lang_kwargs)
+            self.language_map = await self.get_language_map_async(ss=self.async_session, timeout=timeout, **debug_lang_kwargs)
+            if not self.language_map.get('zh'):
+                self.language_map.update(self.add_zh_lang_map)
 
         from_language, to_language = self.check_language(from_language, to_language, self.language_map,
                                                          output_zh=self.output_zh)
 
         if from_language == 'auto':
-            from_language = self.warning_auto_lang('yandex', self.default_from_language, if_print_warning)
+            from_language =  (await self.get_request_data_async(ss=self.async_session, method='detect', params={'text': query_text}, timeout=timeout))[
+                'lang']
+            if not from_language:
+                from_language = self.warning_auto_lang('yandex', self.default_from_language, if_print_warning)
 
         params = {'text': query_text, 'lang': f'{from_language}-{to_language}'}
-        data = self.get_request_data(ss=self.session, method='translate', params=params, timeout=timeout)
+        data = await self.get_request_data_async(ss=self.async_session, method='translate', params=params, timeout=timeout)
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['text'][0]
@@ -4291,6 +4326,14 @@ class Iciba(Tse):
         lang_list = sorted(list(set([lang for d in dd for lang in dd[d]])))
         return {}.fromkeys(lang_list, lang_list)
 
+    @Tse.debug_language_map
+    async def get_language_map_async(self, api_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
+                         **kwargs: LangMapKwargsType) -> dict:
+        params = {'c': 'trans', 'm': 'getLanguage', 'q': 0, 'type': 'en', 'str': ''}
+        dd = (await ss.get(api_url, params=params, headers=headers, timeout=timeout)).json()
+        lang_list = sorted(list(set([lang for d in dd for lang in dd[d]])))
+        return {}.fromkeys(lang_list, lang_list)
+
     def encrypt_by_aes_ecb_pkcs7(self, data: str, key: str, if_padding: bool = True) -> bytes:
         algorithm = cry_ciphers.base.modes.algorithms.AES(key=key.encode())
         mode = cry_ciphers.base.modes.ECB()
@@ -4450,7 +4493,7 @@ class Iciba(Tse):
             _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = self.get_language_map(self.api_url, self.async_session, self.language_headers, timeout,
+            self.language_map = await self.get_language_map_async(self.api_url, self.async_session, self.language_headers, timeout,
                                                       **debug_lang_kwargs)
 
         from_language, to_language = self.check_language(from_language, to_language, self.language_map,
@@ -4507,6 +4550,22 @@ class IflytekV1(Tse):
             r = ss.get(self.language_url, headers=headers, timeout=timeout)
         except:
             r = ss.get(self.language_old_url, headers=headers, timeout=timeout)
+
+        js_html = r.text
+        lang_str = re.compile('languageList:\\(e={(.*?)}').search(js_html).group()[16:]
+        lang_list = sorted(list(exejs.evaluate(lang_str).keys()))
+        return {}.fromkeys(lang_list, lang_list)
+
+    @Tse.debug_language_map
+    async def get_language_map_async(self, host_html: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
+                         **kwargs: LangMapKwargsType) -> dict:
+        try:
+            if not self.language_url:
+                url_path = re.compile(self.language_url_pattern).search(host_html).group()
+                self.language_url = f'{self.host_url[:21]}{url_path}'
+            r = await ss.get(self.language_url, headers=headers, timeout=timeout)
+        except:
+            r = await ss.get(self.language_old_url, headers=headers, timeout=timeout)
 
         js_html = r.text
         lang_str = re.compile('languageList:\\(e={(.*?)}').search(js_html).group()[16:]
@@ -4626,7 +4685,7 @@ class IflytekV1(Tse):
             _ = await self.async_session.get(self.info_url, headers=self.host_headers, timeout=timeout)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = self.get_language_map(host_html, self.async_session, self.host_headers, timeout,
+            self.language_map = await self.get_language_map_async(host_html, self.async_session, self.host_headers, timeout,
                                                       **debug_lang_kwargs)
 
         if from_language == 'auto':
@@ -4674,6 +4733,21 @@ class IflytekV2(Tse):
         self.language_url = f"""{host_true_url}{re.compile(self.language_url_pattern).search(host_js_html).group()}"""
 
         lang_js_html = ss.get(self.language_url, headers=headers, timeout=timeout).text
+        lang_list = re.compile('languageCode:"(.*?)",').findall(lang_js_html)
+        lang_list = sorted(list(set(lang_list)))
+        return {}.fromkeys(lang_list, lang_list)
+
+    @Tse.debug_language_map
+    async def get_language_map_async(self, host_html: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
+                         **kwargs: LangMapKwargsType) -> dict:
+        host_true_url = f'https://{urllib.parse.urlparse(self.host_url).hostname}'
+
+        et = lxml_etree.HTML(host_html)
+        host_js_url = f"""{host_true_url}{et.xpath('//script[@type="module"]/@src')[0]}"""
+        host_js_html =( await ss.get(host_js_url, headers=headers, timeout=timeout)).text
+        self.language_url = f"""{host_true_url}{re.compile(self.language_url_pattern).search(host_js_html).group()}"""
+
+        lang_js_html = (await ss.get(self.language_url, headers=headers, timeout=timeout)).text
         lang_list = re.compile('languageCode:"(.*?)",').findall(lang_js_html)
         lang_list = sorted(list(set(lang_list)))
         return {}.fromkeys(lang_list, lang_list)
@@ -4789,7 +4863,7 @@ class IflytekV2(Tse):
             host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = self.get_language_map(host_html, self.async_session, self.host_headers, timeout,
+            self.language_map = await self.get_language_map_async(host_html, self.async_session, self.host_headers, timeout,
                                                       **debug_lang_kwargs)
 
         if from_language == 'auto':
@@ -5467,11 +5541,11 @@ class TranslateCom(Tse):
 
         not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
-        if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+        if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.session = Tse.get_async_client_session(http_client, proxies)
-            _ = (await self.session.get(self.host_url, headers=self.host_headers, timeout=timeout))
-            lang_r = await self.session.get(self.language_url, headers=self.host_headers, timeout=timeout)
+            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            _ = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout))
+            lang_r = await self.async_session.get(self.language_url, headers=self.host_headers, timeout=timeout)
             self.language_description =  lang_r.json()
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
@@ -5479,7 +5553,7 @@ class TranslateCom(Tse):
 
         if from_language == 'auto':
             detect_form = {'text_to_translate': query_text}
-            r_detect = await self.session.post(self.lang_detect_url, data=detect_form, headers=self.api_headers,
+            r_detect = await self.async_session.post(self.lang_detect_url, data=detect_form, headers=self.api_headers,
                                                timeout=timeout)
             from_language = ( r_detect.json())['language']
 
@@ -5492,7 +5566,7 @@ class TranslateCom(Tse):
             'translated_lang': to_language,
             'use_cache_only': 'false',
         }
-        r = await self.session.post(self.api_url, data=payload, headers=self.api_headers, timeout=timeout)
+        r = await self.async_session.post(self.api_url, data=payload, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
         data = r.json()
         await asyncio.sleep(sleep_seconds)
@@ -5797,16 +5871,14 @@ class Papago(Tse):
 
         not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
-        if not (
-                self.session and self.language_map and not_update_cond_freq and not_update_cond_time and self.auth_key and self.device_id):
-            self.begin_time = time.time()
-            self.session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
-            self.language_url = self.host_url + re.search(self.language_url_pattern, host_html).group()
-            lang_html =  (
-                await self.session.get(self.language_url, headers=self.host_headers, timeout=timeout)).text
-            self.auth_key = self.get_auth_key(lang_html)
+        if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.auth_key):
             self.device_id = str(uuid.uuid4())
+            self.begin_time = time.time()
+            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            host_html =(await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            url_path = re.compile(self.language_url_pattern).search(host_html).group()
+            self.language_url = ''.join([self.host_url, url_path])
+            lang_html = (await self.async_session.get(self.language_url, headers=self.host_headers, timeout=timeout)).text
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
             self.language_map = self.get_language_map(lang_html, **debug_lang_kwargs)
@@ -5821,7 +5893,7 @@ class Papago(Tse):
 
         if from_language == 'auto':
             detect_form = urllib.parse.urlencode({'query': query_text})
-            r_detect = await self.session.post(self.lang_detect_url, headers=detect_headers, data=detect_form,
+            r_detect = await self.async_session.post(self.lang_detect_url, headers=detect_headers, data=detect_form,
                                                timeout=timeout)
             from_language = ( r_detect.json())['langCode']
 
@@ -5838,7 +5910,7 @@ class Papago(Tse):
             'dict': 'true', 'dictDisplay': 30, 'honorific': 'false', 'instant': 'false', 'paging': 'false',
         }
         payload = urllib.parse.urlencode(payload)
-        r = await self.session.post(self.api_url, headers=trans_headers, data=payload, timeout=timeout)
+        r = await self.async_session.post(self.api_url, headers=trans_headers, data=payload, timeout=timeout)
         r.raise_for_status()
         data = r.json()
         await asyncio.sleep(sleep_seconds)
@@ -5877,12 +5949,30 @@ class LingvanexV1(Tse):
         lang_list = sorted(set([item['full_code'] for item in detail_lang_map['result']]))
         return {}.fromkeys(lang_list, lang_list)
 
+    @Tse.debug_language_map
+    async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
+                         **kwargs: LangMapKwargsType) -> dict:
+        params = {'all': 'true', 'code': 'en_GB', 'platform': 'dp', '_': self.get_timestamp()}
+        detail_lang_map = (await ss.get(lang_url, params=params, headers=headers, timeout=timeout)).json()
+        for _ in range(3):
+            _ = ss.get(lang_url, params={'platform': 'dp'}, headers=headers, timeout=timeout)
+        lang_list = sorted(set([item['full_code'] for item in detail_lang_map['result']]))
+        return {}.fromkeys(lang_list, lang_list)
+
     def get_d_lang_map(self, lang_url: str, ss: SessionType, headers: dict, timeout: Optional[float]) -> dict:
         params = {'all': 'true', 'code': 'en_GB', 'platform': 'dp', '_': self.get_timestamp()}
         return ss.get(lang_url, params=params, headers=headers, timeout=timeout).json()
 
+    async def get_d_lang_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float]) -> dict:
+        params = {'all': 'true', 'code': 'en_GB', 'platform': 'dp', '_': self.get_timestamp()}
+        return (await ss.get(lang_url, params=params, headers=headers, timeout=timeout)).json()
+
     def get_auth(self, auth_url: str, ss: SessionType, headers: dict, timeout: Optional[float]) -> dict:
         js_html = ss.get(auth_url, headers=headers, timeout=timeout).text
+        return {k: v for k, v in re.compile(',(.*?)="(.*?)"').findall(js_html)}
+
+    async def get_auth_async(self, auth_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float]) -> dict:
+        js_html = (await ss.get(auth_url, headers=headers, timeout=timeout)).text
         return {k: v for k, v in re.compile(',(.*?)="(.*?)"').findall(js_html)}
 
     @Tse.time_stat
@@ -6017,7 +6107,7 @@ class LingvanexV1(Tse):
             self.begin_time = time.time()
             self.async_session = Tse.get_async_client_session(http_client, proxies)
             _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
-            self.auth_info = self.get_auth(self.auth_url, self.async_session, self.host_headers, timeout)
+            self.auth_info = await self.get_auth_async(self.auth_url, self.async_session, self.host_headers, timeout)
 
             if mode not in self.model_pool:
                 raise TranslatorError
@@ -6032,9 +6122,9 @@ class LingvanexV1(Tse):
 
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = self.get_language_map(self.language_url, self.async_session, self.host_headers, timeout,
+            self.language_map = await self.get_language_map_async(self.language_url, self.async_session, self.host_headers, timeout,
                                                       **debug_lang_kwargs)
-            self.detail_language_map = self.get_d_lang_map(self.language_url, self.async_session, self.host_headers, timeout)
+            self.detail_language_map = await self.get_d_lang_map_async(self.language_url, self.async_session, self.host_headers, timeout)
 
         if from_language == 'auto':
             from_language = self.warning_auto_lang('lingvanex', self.default_from_language, if_print_warning)
@@ -6080,6 +6170,13 @@ class LingvanexV2(Tse):
     def get_language_map(self, lang_url: str, ss: SessionType, headers: dict, timeout: Optional[float],
                          **kwargs: LangMapKwargsType) -> dict:
         self.detail_language_map = ss.get(lang_url, headers=headers, timeout=timeout).json()
+        lang_list = sorted(set([item['full_code'] for item in self.detail_language_map['result']]))
+        return {}.fromkeys(lang_list, lang_list)
+
+    @Tse.debug_language_map
+    async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
+                         **kwargs: LangMapKwargsType) -> dict:
+        self.detail_language_map = (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
         lang_list = sorted(set([item['full_code'] for item in self.detail_language_map['result']]))
         return {}.fromkeys(lang_list, lang_list)
 
@@ -6205,7 +6302,7 @@ class LingvanexV2(Tse):
             self.api_headers.update({'authorization': self.auth})
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = self.get_language_map(self.language_url, self.async_session, self.host_headers, timeout,
+            self.language_map = await self.get_language_map_async(self.language_url, self.async_session, self.host_headers, timeout,
                                                       **debug_lang_kwargs)
 
         if from_language == 'auto':
@@ -6257,6 +6354,13 @@ class NiutransV1(Tse):
     def get_language_map(self, lang_url: str, ss: SessionType, headers: dict, timeout: Optional[float],
                          **kwargs: LangMapKwargsType) -> dict:
         detail_lang_map = ss.get(lang_url, headers=headers, timeout=timeout).json()
+        lang_list = sorted(set([item['languageAbbreviation'] for item in detail_lang_map['data']]))
+        return {}.fromkeys(lang_list, lang_list)
+
+    @Tse.debug_language_map
+    async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
+                         **kwargs: LangMapKwargsType) -> dict:
+        detail_lang_map = (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
         lang_list = sorted(set([item['languageAbbreviation'] for item in detail_lang_map['data']]))
         return {}.fromkeys(lang_list, lang_list)
 
@@ -6427,7 +6531,7 @@ class NiutransV1(Tse):
 
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = self.get_language_map(self.get_language_url, self.async_session, self.api_headers, timeout,
+            self.language_map = await self.get_language_map_async(self.get_language_url, self.async_session, self.api_headers, timeout,
                                                       **debug_lang_kwargs)
 
         from_language, to_language = self.check_language(from_language, to_language, self.language_map,
@@ -6483,12 +6587,28 @@ class NiutransV2(Tse):
         lang_list = sorted(set([it['code'] for item in d_lang_map['languageList'] for it in item['result']]))
         return {}.fromkeys(lang_list, lang_list)
 
+    @Tse.debug_language_map
+    async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
+                         **kwargs: LangMapKwargsType) -> dict:
+        d_lang_map = (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
+        lang_list = sorted(set([it['code'] for item in d_lang_map['languageList'] for it in item['result']]))
+        return {}.fromkeys(lang_list, lang_list)
+
     def get_captcha_id(self, captcha_url: str, ss: SessionType, headers: dict, timeout: Optional[float]):
         captcha_host_html = ss.get(captcha_url, headers=headers, timeout=timeout).text
         captcha_js_url_path = re.compile('/_next/static/(.*?)/pages/adaptive-captcha-demo.js').search(
             captcha_host_html).group(0)
         captcha_js_url = f'{self.geetest_host_url}{captcha_js_url_path}'
         captcha_js_html = ss.get(captcha_js_url, headers=headers, timeout=timeout).text
+        captcha_id = re.compile('captchaId:"(.*?)",').search(captcha_js_html).group(1)
+        return captcha_id
+
+    async def get_captcha_id_async(self, captcha_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float]):
+        captcha_host_html = (await ss.get(captcha_url, headers=headers, timeout=timeout)).text
+        captcha_js_url_path = re.compile('/_next/static/(.*?)/pages/adaptive-captcha-demo.js').search(
+            captcha_host_html).group(0)
+        captcha_js_url = f'{self.geetest_host_url}{captcha_js_url_path}'
+        captcha_js_html = (await ss.get(captcha_js_url, headers=headers, timeout=timeout)).text
         captcha_id = re.compile('captchaId:"(.*?)",').search(captcha_js_html).group(1)
         return captcha_id
 
@@ -6656,10 +6776,10 @@ class NiutransV2(Tse):
             self.async_session = Tse.get_async_client_session(http_client, proxies)
             _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
             _ = await self.async_session.get(self.login_url, headers=self.host_headers, timeout=timeout)
-            self.captcha_id = self.get_captcha_id(self.geetest_captcaha_url, self.async_session, self.host_headers, timeout)
+            self.captcha_id = await self.get_captcha_id_async(self.geetest_captcaha_url, self.async_session, self.host_headers, timeout)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = self.get_language_map(self.get_language_url, self.async_session, self.api_headers, timeout,
+            self.language_map = await self.get_language_map_async(self.get_language_url, self.async_session, self.api_headers, timeout,
                                                       **debug_lang_kwargs)
 
         from_language, to_language = self.check_language(from_language, to_language, self.language_map,
@@ -7050,6 +7170,14 @@ class ModernMt(Tse):
         lang_list = sorted(d_lang_map.keys())
         return {}.fromkeys(lang_list, lang_list)
 
+    @Tse.debug_language_map
+    async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
+                         **kwargs: LangMapKwargsType) -> dict:
+        lang_html = (await ss.get(lang_url, headers=headers, timeout=timeout)).text
+        d_lang_map = json.loads(re.compile('''('{(.*?)}')''').search(lang_html).group(0)[1:-1])
+        lang_list = sorted(d_lang_map.keys())
+        return {}.fromkeys(lang_list, lang_list)
+
     @Tse.time_stat
     @Tse.check_query
     def modernMt_api(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
@@ -7162,7 +7290,7 @@ class ModernMt(Tse):
             _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = self.get_language_map(self.language_url, self.async_session, self.host_headers, timeout,
+            self.language_map = await self.get_language_map_async(self.language_url, self.async_session, self.host_headers, timeout,
                                                       **debug_lang_kwargs)
 
         from_language, to_language = self.check_language(from_language, to_language, self.language_map,
@@ -7211,6 +7339,19 @@ class MyMemory(Tse):
         self.myMemory_language_list = sorted(list(set(lang_list)))
 
         lang_d_list = ss.get(matecat_lang_url, headers=headers, timeout=timeout).json()
+        self.mateCat_language_list = sorted(list(set([item['code'] for item in lang_d_list])))
+
+        lang_list = sorted(list(set(self.myMemory_language_list + self.mateCat_language_list)))
+        return {}.fromkeys(lang_list, lang_list)
+
+    @Tse.debug_language_map
+    async def get_language_map_async(self, myMemory_host_html: str, matecat_lang_url: str, ss: AsyncSessionType, headers: dict,
+                         timeout: Optional[float], **kwargs: LangMapKwargsType) -> dict:
+        et = lxml_etree.HTML(myMemory_host_html)
+        lang_list = et.xpath('//*[@id="select_source_mm"]/option/@value')[2:]
+        self.myMemory_language_list = sorted(list(set(lang_list)))
+
+        lang_d_list = (await ss.get(matecat_lang_url, headers=headers, timeout=timeout)).json()
         self.mateCat_language_list = sorted(list(set([item['code'] for item in lang_d_list])))
 
         lang_list = sorted(list(set(self.myMemory_language_list + self.mateCat_language_list)))
@@ -7333,7 +7474,7 @@ class MyMemory(Tse):
             host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = self.get_language_map(host_html, self.get_matecat_language_url, self.async_session,
+            self.language_map = await self.get_language_map_async(host_html, self.get_matecat_language_url, self.async_session,
                                                       self.host_headers, timeout, **debug_lang_kwargs)
 
         if from_language == 'auto':
@@ -7386,6 +7527,13 @@ class Mirai(Tse):
     def get_language_map(self, lang_url: str, ss: SessionType, headers: dict, timeout: Optional[float],
                          **kwargs: LangMapKwargsType) -> dict:
         js_html = ss.get(lang_url, headers=headers, timeout=timeout).text
+        lang_pairs = re.compile('"/trial/(\\w{2})/(\\w{2})"').findall(js_html)
+        return {f_lang: [v for k, v in lang_pairs if k == f_lang] for f_lang, t_lang in lang_pairs}
+
+    @Tse.debug_language_map
+    async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
+                         **kwargs: LangMapKwargsType) -> dict:
+        js_html = (await ss.get(lang_url, headers=headers, timeout=timeout)).text
         lang_pairs = re.compile('"/trial/(\\w{2})/(\\w{2})"').findall(js_html)
         return {f_lang: [v for k, v in lang_pairs if k == f_lang] for f_lang, t_lang in lang_pairs}
 
@@ -7456,7 +7604,7 @@ class Mirai(Tse):
             'userId': self.user_id,
             'transId': self.trans_id,
             'uniqueId': self.tran_key,
-            'date': f'{datetime.datetime.utcnow().isoformat()[:-3]}Z',
+            'date': f'{datetime.datetime.now(datetime.UTC).isoformat()[:-3]}Z',
         }
         _ = self.session.post(self.trace_url, json=trace_data, headers=self.api_text_headers, timeout=timeout)
 
@@ -7530,7 +7678,7 @@ class Mirai(Tse):
             self.lang_url = f'https://miraitranslate.com/trial/inmt/{lang_url_part}'
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = self.get_language_map(self.lang_url, self.async_session, self.api_json_headers, timeout,
+            self.language_map = await self.get_language_map_async(self.lang_url, self.async_session, self.api_json_headers, timeout,
                                                       **debug_lang_kwargs)
 
         if from_language == 'auto':
@@ -7548,7 +7696,7 @@ class Mirai(Tse):
             'userId': self.user_id,
             'transId': self.trans_id,
             'uniqueId': self.tran_key,
-            'date': f'{datetime.datetime.utcnow().isoformat()[:-3]}Z',
+            'date': f'{datetime.datetime.now(datetime.UTC).isoformat()[:-3]}Z',
         }
         _ = await self.async_session.post(self.trace_url, json=trace_data, headers=self.api_text_headers, timeout=timeout)
 
@@ -7595,6 +7743,13 @@ class Apertium(Tse):
     def get_language_map(self, lang_url: str, ss: SessionType, headers: dict, timeout: Optional[float],
                          **kwargs: LangMapKwargsType) -> dict:
         js_html = ss.get(lang_url, headers=headers, timeout=timeout).text
+        lang_pairs = re.compile('{sourceLanguage:"(.*?)",targetLanguage:"(.*?)"}').findall(js_html)
+        return {f_lang: [v for k, v in lang_pairs if k == f_lang] for f_lang, t_lang in lang_pairs}
+
+    @Tse.debug_language_map
+    async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
+                         **kwargs: LangMapKwargsType) -> dict:
+        js_html = (await ss.get(lang_url, headers=headers, timeout=timeout)).text
         lang_pairs = re.compile('{sourceLanguage:"(.*?)",targetLanguage:"(.*?)"}').findall(js_html)
         return {f_lang: [v for k, v in lang_pairs if k == f_lang] for f_lang, t_lang in lang_pairs}
 
@@ -7713,7 +7868,7 @@ class Apertium(Tse):
             _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = self.get_language_map(self.get_lang_url, self.async_session, self.host_headers, timeout,
+            self.language_map = await self.get_language_map_async(self.get_lang_url, self.async_session, self.host_headers, timeout,
                                                       **debug_lang_kwargs)
 
         if from_language == 'auto':
@@ -8377,6 +8532,17 @@ class SysTran(Tse):
         }
         return client_data
 
+    async def get_client_data_async(self, client_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float]) -> dict:
+        js_html = (await ss.get(client_url, headers=headers, timeout=timeout)).text
+        search_groups = re.compile('"https://translate.systran.net/oidc",\\w="(.*?)",\\w="(.*?)";').search(
+            js_html)  # \\w{1} == \\w
+        client_data = {
+            'grant_type': 'client_credentials',
+            'client_id': search_groups.group(1),
+            'client_secret': search_groups.group(2),
+        }
+        return client_data
+
     @Tse.time_stat
     @Tse.check_query
     def sysTran_api(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
@@ -8519,7 +8685,7 @@ class SysTran(Tse):
             self.begin_time = time.time()
             self.async_session = Tse.get_async_client_session(http_client, proxies)
             _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
-            self.client_data = self.get_client_data(self.get_client_url, self.async_session, self.host_headers, timeout)
+            self.client_data = await self.get_client_data_async(self.get_client_url, self.async_session, self.host_headers, timeout)
             payload = urllib.parse.urlencode(self.client_data)
             self.token_data = (await self.async_session.post(self.get_token_url, data=payload, headers=self.api_ajax_headers,
                                                 timeout=timeout)).json()
@@ -8843,10 +9009,10 @@ class TranslateMe(Tse):
 
         not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
-        if not (self.session and self.language_map and not_update_cond_freq and not_update_cond_time):
+        if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
             self.language_map = self.get_language_map(host_html, **debug_lang_kwargs)
@@ -9108,6 +9274,14 @@ class LanguageWire(Tse):
                                                   jj['sourceLanguage']['mmtCode'] == ii['sourceLanguage']['mmtCode']]
                 for ii in d_lang_map}
 
+    @Tse.debug_language_map
+    async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
+                         **kwargs: LangMapKwargsType) -> dict:
+        d_lang_map = (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
+        return {ii['sourceLanguage']['mmtCode']: [jj['targetLanguage']['mmtCode'] for jj in d_lang_map if
+                                                  jj['sourceLanguage']['mmtCode'] == ii['sourceLanguage']['mmtCode']]
+                for ii in d_lang_map}
+
     # def get_lwt_data(self, lwt_js_url: str, ss: SessionType, headers: dict, timeout: Optional[float]) -> dict:
     #     js_html = ss.get(lwt_js_url, headers=headers, timeout=timeout).text
     #     lwt_data = {
@@ -9242,7 +9416,7 @@ class LanguageWire(Tse):
             _ = await self.async_session.post(self.cookie_url, headers=self.api_headers, timeout=timeout)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = self.get_language_map(self.lang_url, self.async_session, self.api_headers, timeout,
+            self.language_map = await self.get_language_map_async(self.lang_url, self.async_session, self.api_headers, timeout,
                                                       **debug_lang_kwargs)
 
         if from_language == 'auto':
