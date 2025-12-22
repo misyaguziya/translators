@@ -1068,7 +1068,7 @@ class BaiduV1(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'requests')
+        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -1305,7 +1305,7 @@ class BaiduV2(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'requests')
+        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -1355,7 +1355,7 @@ class BaiduV2(Tse):
         r = await self.async_session.post(self.api_url, params=params, data=payload, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
         data = r.json()
-        time.sleep(sleep_seconds)
+        await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else '\n'.join([x['dst'] for x in data['trans_result']['data']])
 
@@ -1396,6 +1396,12 @@ class YoudaoV1(Tse):
         lang_list = sorted([it['code'] for it in data['data']['value']['textTranslate']['specify']])
         return {}.fromkeys(lang_list, lang_list)
 
+    @Tse.debug_language_map
+    async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float], **kwargs: LangMapKwargsType) -> dict:
+        data = (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
+        lang_list = sorted([it['code'] for it in data['data']['value']['textTranslate']['specify']])
+        return {}.fromkeys(lang_list, lang_list)
+
     def get_sign_key(self, host_html: str, ss: SessionType, timeout: Optional[float]) -> str:
         try:
             if not self.get_sign_url:
@@ -1407,6 +1413,18 @@ class YoudaoV1(Tse):
             r.raise_for_status()
         sign = re.compile('md5\\("fanyideskweb" \\+ e \\+ i \\+ "(.*?)"\\)').findall(r.text)
         return sign[0] if sign and sign != [''] else "Ygy_4c=r#e#4EX^NUGUc5"  # v1.1.10
+
+    async def get_sign_key_async(self, host_html: str, ss: AsyncSessionType, timeout: Optional[float]) -> str:
+        try:
+            if not self.get_sign_url:
+                self.get_sign_url = re.compile(self.get_sign_pattern).search(host_html).group()
+            r = await ss.get(self.get_sign_url, headers=self.host_headers, timeout=timeout)
+            r.raise_for_status()
+        except:
+            r = await ss.get(self.get_sign_old_url, headers=self.host_headers, timeout=timeout)
+            r.raise_for_status()
+        sign = re.compile('md5\\("fanyideskweb" \\+ e \\+ i \\+ "(.*?)"\\)').findall(r.text)
+        return sign[0] if sign and sign != [''] else "Ygy_4c=r#e#4EX^NUGUc5"
 
     def get_form(self, query_text: str, from_language: str, to_language: str, sign_key: str) -> dict:
         ts = str(self.get_timestamp())
@@ -1487,6 +1505,61 @@ class YoudaoV1(Tse):
         self.query_count += 1
         return data if is_detail_result else '\n'.join([' '.join([it['tgt'] for it in item]) for item in data['translateResult']])
 
+    @Tse.time_stat
+    @Tse.check_query
+    async def youdao_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en', **kwargs: ApiKwargsType) -> Union[str, dict]:
+        """
+        https://fanyi.youdao.com
+        :param query_text: str, must.
+        :param from_language: str, default 'auto'.
+        :param to_language: str, default 'en'.
+        :param **kwargs:
+                :param timeout: Optional[float], default None.
+                :param proxies: Optional[dict], default None.
+                :param sleep_seconds: float, default 0.
+                :param is_detail_result: bool, default False.
+                :param http_client: str, default 'niquests'. Union['niquests', 'httpx']
+                :param if_ignore_limit_of_length: bool, default False.
+                :param limit_of_length: int, default 20000.
+                :param if_ignore_empty_query: bool, default False.
+                :param update_session_after_freq: int, default 1000.
+                :param update_session_after_seconds: float, default 1500.
+                :param if_show_time_stat: bool, default False.
+                :param show_time_stat_precision: int, default 2.
+                :param if_print_warning: bool, default True.
+        :return: str or dict
+        """
+
+        timeout = kwargs.get('timeout', None)
+        proxies = kwargs.get('proxies', None)
+        sleep_seconds = kwargs.get('sleep_seconds', 0)
+        http_client = kwargs.get('http_client', 'niquests')
+        if_print_warning = kwargs.get('if_print_warning', True)
+        is_detail_result = kwargs.get('is_detail_result', False)
+        update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
+        update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
+        self.check_input_limit(query_text, self.input_limit)
+
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
+        not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
+        if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.sign_key):
+            self.begin_time = time.time()
+            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.sign_key = await self.get_sign_key_async(host_html, self.async_session, timeout)
+            debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
+            self.language_map = await self.get_language_map_async(self.language_url, self.async_session, self.host_headers, timeout, **debug_lang_kwargs)
+
+        from_language, to_language = self.check_language(from_language, to_language, self.language_map, output_zh=self.output_zh)
+
+        form = self.get_form(query_text, from_language, to_language, self.sign_key)
+        r = await self.async_session.post(self.api_url, data=form, headers=self.api_headers, timeout=timeout)
+        r.raise_for_status()
+        data = r.json()
+        await asyncio.sleep(sleep_seconds)
+        self.query_count += 1
+        return data if is_detail_result else '\n'.join([' '.join([it['tgt'] for it in item]) for item in data['translateResult']])
+
 
 class YoudaoV2(Tse):
     def __init__(self):
@@ -1522,6 +1595,12 @@ class YoudaoV2(Tse):
     @Tse.debug_language_map
     def get_language_map(self, lang_url: str, ss: SessionType, headers: dict, timeout: Optional[float], **kwargs: LangMapKwargsType) -> dict:
         data = ss.get(lang_url, headers=headers, timeout=timeout).json()
+        lang_list = sorted([it['code'] for it in data['data']['value']['textTranslate']['specify']])
+        return {}.fromkeys(lang_list, lang_list)
+
+    @Tse.debug_language_map
+    async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float], **kwargs: LangMapKwargsType) -> dict:
+        data = (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
         lang_list = sorted([it['code'] for it in data['data']['value']['textTranslate']['specify']])
         return {}.fromkeys(lang_list, lang_list)
 
@@ -1634,6 +1713,87 @@ class YoudaoV2(Tse):
         self.query_count += 1
         return data if is_detail_result else str(data)  # TODO
 
+    @Tse.uncertified
+    @Tse.time_stat
+    @Tse.check_query
+    async def youdao_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en', **kwargs: ApiKwargsType) -> Union[str, dict]:
+        """
+        https://fanyi.youdao.com
+        :param query_text: str, must.
+        :param from_language: str, default 'auto'.
+        :param to_language: str, default 'en'.
+        :param **kwargs:
+                :param timeout: Optional[float], default None.
+                :param proxies: Optional[dict], default None.
+                :param sleep_seconds: float, default 0.
+                :param is_detail_result: bool, default False.
+                :param http_client: str, default 'niquests'. Union['niquests', 'httpx']
+                :param if_ignore_limit_of_length: bool, default False.
+                :param limit_of_length: int, default 20000.
+                :param if_ignore_empty_query: bool, default False.
+                :param update_session_after_freq: int, default 1000.
+                :param update_session_after_seconds: float, default 1500.
+                :param if_show_time_stat: bool, default False.
+                :param show_time_stat_precision: int, default 2.
+                :param if_print_warning: bool, default True.
+                :param professional_field: str, default '0'. Choose from ('0','1','2','3')
+        :return: str or dict
+        """
+
+        domain = kwargs.get('professional_field', '0')
+        if domain not in self.professional_field:
+            raise TranslatorError
+
+        timeout = kwargs.get('timeout', None)
+        proxies = kwargs.get('proxies', None)
+        sleep_seconds = kwargs.get('sleep_seconds', 0)
+        http_client = kwargs.get('http_client', 'niquests')
+        if_print_warning = kwargs.get('if_print_warning', True)
+        is_detail_result = kwargs.get('is_detail_result', False)
+        update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
+        update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
+        self.check_input_limit(query_text, self.input_limit)
+
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
+        not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
+        if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.secret_key):
+            self.begin_time = time.time()
+            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            _ = await self.async_session.get(self.login_url, headers=self.host_headers, timeout=timeout)
+            self.professional_field_map = (await self.async_session.get(self.domain_url, headers=self.host_headers, timeout=timeout)).json()['data']
+            debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
+            self.language_map = await self.get_language_map_async(self.language_url, self.async_session, self.host_headers, timeout, **debug_lang_kwargs)
+
+            self.get_js_url = ''.join([self.host_url, '/', re.compile(self.get_js_pattern).search(host_html).group()])
+            js_html = (await self.async_session.get(self.get_js_url, headers=self.host_headers, timeout=timeout)).text
+
+            self.decode_key = re.compile('decodeKey:"(.*?)",').search(js_html).group(1)
+            self.decode_iv = re.compile('decodeIv:"(.*?)",').search(js_html).group(1)
+            self.default_key = self.get_default_key(js_html)
+
+            params = self.get_payload(keyid='webfanyi-key-getter', key=self.default_key, timestamp=self.get_timestamp())
+            key_r = await self.async_session.get(self.get_key_url, params=params, headers=self.api_headers, timeout=timeout)
+            self.secret_key = key_r.json()['data']['secretKey']
+
+        from_language, to_language = self.check_language(from_language, to_language, self.language_map, output_zh=self.output_zh)
+
+        translate_form = {
+            'i': query_text,
+            'from': from_language,
+            'to': to_language if from_language != 'auto' else '',
+            'domain': domain,
+            'dictResult': 'true',
+        }
+        payload = self.get_payload(keyid='webfanyi', key=self.default_key, timestamp=self.get_timestamp(), **translate_form)
+        payload = urllib.parse.urlencode(payload)
+        r = await self.async_session.post(self.api_url, data=payload, headers=self.api_headers, timeout=timeout)
+        r.raise_for_status()
+        data = self.decrypt(r.text, decrypt_dictionary={})
+        await asyncio.sleep(sleep_seconds)
+        self.query_count += 1
+        return data if is_detail_result else str(data)
+
 
 class YoudaoV3(Tse):
     def __init__(self):
@@ -1714,6 +1874,63 @@ class YoudaoV3(Tse):
         self.query_count += 1
         return data if is_detail_result else data['translation'][0]
 
+    @Tse.time_stat
+    @Tse.check_query
+    async def youdao_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en', **kwargs: ApiKwargsType) -> Union[str, dict]:
+        """
+        https://ai.youdao.com/product-fanyi-text.s
+        :param query_text: str, must.
+        :param from_language: str, default 'auto'.
+        :param to_language: str, default 'en'.
+        :param **kwargs:
+                :param timeout: Optional[float], default None.
+                :param proxies: Optional[dict], default None.
+                :param sleep_seconds: float, default 0.
+                :param is_detail_result: bool, default False.
+                :param http_client: str, default 'niquests'. Union['niquests', 'httpx']
+                :param if_ignore_limit_of_length: bool, default False.
+                :param limit_of_length: int, default 20000.
+                :param if_ignore_empty_query: bool, default False.
+                :param update_session_after_freq: int, default 1000.
+                :param update_session_after_seconds: float, default 1500.
+                :param if_show_time_stat: bool, default False.
+                :param show_time_stat_precision: int, default 2.
+                :param if_print_warning: bool, default True.
+        :return: str or dict
+        """
+
+        timeout = kwargs.get('timeout', None)
+        proxies = kwargs.get('proxies', None)
+        sleep_seconds = kwargs.get('sleep_seconds', 0)
+        http_client = kwargs.get('http_client', 'niquests')
+        if_print_warning = kwargs.get('if_print_warning', True)
+        is_detail_result = kwargs.get('is_detail_result', False)
+        update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
+        update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
+        self.check_input_limit(query_text, self.input_limit)
+
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
+        not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
+        if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
+            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
+            self.language_map = self.get_language_map(host_html, **debug_lang_kwargs)
+
+        from_language, to_language = self.check_language(from_language, to_language, self.language_map, output_zh=self.output_zh)
+        if from_language == 'auto':
+            from_language = to_language = 'Auto'
+
+        payload = {'q': query_text, 'from': from_language, 'to': to_language}
+        payload = urllib.parse.urlencode(payload)
+        r = await self.async_session.post(self.api_url, data=payload, headers=self.api_headers, timeout=timeout)
+        r.raise_for_status()
+        data = r.json()
+        await asyncio.sleep(sleep_seconds)
+        self.query_count += 1
+        return data if is_detail_result else data['translation'][0]
+
 
 class QQFanyi(Tse):
     def __init__(self):
@@ -1741,8 +1958,18 @@ class QQFanyi(Tse):
         lang_map_str = re.compile('C={(.*?)}|languagePair = {(.*?)}', flags=re.S).search(r.text).group()  # C=
         return exejs.evaluate(lang_map_str)
 
+    @Tse.debug_language_map
+    async def get_language_map_async(self, ss: AsyncSessionType, language_url: str, timeout: Optional[float], **kwargs: LangMapKwargsType) -> dict:
+        r = await ss.get(language_url, headers=self.host_headers, timeout=timeout)
+        r.raise_for_status()
+        lang_map_str = re.compile('C={(.*?)}|languagePair = {(.*?)}', flags=re.S).search(r.text).group()  # C=
+        return exejs.evaluate(lang_map_str)
+
     def get_qt(self, ss: SessionType, timeout: Optional[float]) -> dict:
         return ss.post(self.get_qt_url, headers=self.qt_headers, json=self.qtv_qtk, timeout=timeout).json()
+
+    async def get_qt_async(self, ss: AsyncSessionType, timeout: Optional[float]) -> dict:
+        return (await ss.post(self.get_qt_url, headers=self.qt_headers, json=self.qtv_qtk, timeout=timeout)).json()
 
     @Tse.uncertified  # todo: need ticket and randstr of TCaptcha.
     @Tse.time_stat
@@ -1809,6 +2036,71 @@ class QQFanyi(Tse):
         self.query_count += 1
         return data if is_detail_result else ''.join(item['targetText'] for item in data['translate']['records'])  # auto whitespace
 
+    @Tse.uncertified  # todo: need ticket and randstr of TCaptcha.
+    @Tse.time_stat
+    @Tse.check_query
+    async def qqFanyi_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en', **kwargs: ApiKwargsType) -> Union[str, dict]:
+        """
+        https://fanyi.qq.com
+        :param query_text: str, must.
+        :param from_language: str, default 'auto'.
+        :param to_language: str, default 'en'.
+        :param **kwargs:
+                :param timeout: Optional[float], default None.
+                :param proxies: Optional[dict], default None.
+                :param sleep_seconds: float, default 0.
+                :param is_detail_result: bool, default False.
+                :param http_client: str, default 'niquests'. Union['niquests', 'httpx']
+                :param if_ignore_limit_of_length: bool, default False.
+                :param limit_of_length: int, default 20000.
+                :param if_ignore_empty_query: bool, default False.
+                :param update_session_after_freq: int, default 1000.
+                :param update_session_after_seconds: float, default 1500.
+                :param if_show_time_stat: bool, default False.
+                :param show_time_stat_precision: int, default 2.
+                :param if_print_warning: bool, default True.
+        :return: str or dict
+        """
+
+        timeout = kwargs.get('timeout', None)
+        proxies = kwargs.get('proxies', None)
+        sleep_seconds = kwargs.get('sleep_seconds', 0)
+        http_client = kwargs.get('http_client', 'niquests')
+        if_print_warning = kwargs.get('if_print_warning', True)
+        is_detail_result = kwargs.get('is_detail_result', False)
+        update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
+        update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
+        self.check_input_limit(query_text, self.input_limit)
+
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
+        not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
+        if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.qtv_qtk):
+            self.begin_time = time.time()
+            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            _ = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.qtv_qtk = await self.get_qt_async(self.async_session, timeout)
+            debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
+            self.language_map = await self.get_language_map_async(self.async_session, self.get_language_url, timeout, **debug_lang_kwargs)
+
+        from_language, to_language = self.check_language(from_language, to_language, self.language_map, output_zh=self.output_zh)
+
+        payload = {
+            'source': from_language,
+            'target': to_language,
+            'sourceText': query_text,
+            'qtv': self.qtv_qtk.get('qtv', ''),
+            'qtk': self.qtv_qtk.get('qtk', ''),
+            'ticket': '',
+            'randstr': '',
+            'sessionUuid': f'translate_uuid{self.get_timestamp()}',
+        }
+        r = await self.async_session.post(self.api_url, headers=self.api_headers, data=payload, timeout=timeout)
+        r.raise_for_status()
+        data = r.json()
+        await asyncio.sleep(sleep_seconds)
+        self.query_count += 1
+        return data if is_detail_result else ''.join(item['targetText'] for item in data['translate']['records'])
+
 
 class QQTranSmart(Tse):
     def __init__(self):
@@ -1832,6 +2124,14 @@ class QQTranSmart(Tse):
     def get_language_map(self, lang_url: str, ss: SessionType, timeout: Optional[float], **kwargs: LangMapKwargsType) -> dict:
         js_html = ss.get(lang_url, headers=self.host_headers, timeout=timeout).text
         lang_str_list = re.compile('lngs:\\[(.*?)]').findall(js_html)  # 'lngs:\\[(.*?)\\]'
+        lang_list = [exejs.evaluate(f'[{x}]') for x in lang_str_list]
+        lang_list = sorted(list(set([lang for langs in lang_list for lang in langs])))
+        return {}.fromkeys(lang_list, lang_list)
+
+    @Tse.debug_language_map
+    async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, timeout: Optional[float], **kwargs: LangMapKwargsType) -> dict:
+        js_html = (await ss.get(lang_url, headers=self.host_headers, timeout=timeout)).text
+        lang_str_list = re.compile('lngs:\\[(.*?)]').findall(js_html)
         lang_list = [exejs.evaluate(f'[{x}]') for x in lang_str_list]
         lang_list = sorted(list(set([lang for langs in lang_list for lang in langs])))
         return {}.fromkeys(lang_list, lang_list)
@@ -1930,6 +2230,92 @@ class QQTranSmart(Tse):
         self.query_count += 1
         return data if is_detail_result else ''.join(data['auto_translation'])
 
+    @Tse.time_stat
+    @Tse.check_query
+    async def qqTranSmart_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en', **kwargs: ApiKwargsType) -> Union[str, dict]:
+        """
+        https://transmart.qq.com
+        :param query_text: str, must.
+        :param from_language: str, default 'auto'.
+        :param to_language: str, default 'en'.
+        :param **kwargs:
+                :param timeout: Optional[float], default None.
+                :param proxies: Optional[dict], default None.
+                :param sleep_seconds: float, default 0.
+                :param is_detail_result: bool, default False.
+                :param http_client: str, default 'niquests'. Union['niquests', 'httpx']
+                :param if_ignore_limit_of_length: bool, default False.
+                :param limit_of_length: int, default 20000.
+                :param if_ignore_empty_query: bool, default False.
+                :param update_session_after_freq: int, default 1000.
+                :param update_session_after_seconds: float, default 1500.
+                :param if_show_time_stat: bool, default False.
+                :param show_time_stat_precision: int, default 2.
+                :param if_print_warning: bool, default True.
+        :return: str or dict
+        """
+
+        timeout = kwargs.get('timeout', None)
+        proxies = kwargs.get('proxies', None)
+        sleep_seconds = kwargs.get('sleep_seconds', 0)
+        http_client = kwargs.get('http_client', 'niquests')
+        if_print_warning = kwargs.get('if_print_warning', True)
+        is_detail_result = kwargs.get('is_detail_result', False)
+        update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
+        update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
+        self.check_input_limit(query_text, self.input_limit)
+
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
+        not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
+        if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
+            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+
+            if not self.get_lang_url:
+                self.get_lang_url = f'{self.host_url}{re.compile(self.get_lang_url_pattern).search(host_html).group()}'
+            debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
+            self.language_map = await self.get_language_map_async(self.get_lang_url, self.async_session, timeout, **debug_lang_kwargs)
+
+        if from_language == 'auto':
+            from_language = self.warning_auto_lang('qqTranSmart', self.default_from_language, if_print_warning)
+        from_language, to_language = self.check_language(from_language, to_language, self.language_map, output_zh=self.output_zh)
+
+        client_key = self.get_clientKey()
+        self.api_headers.update({'Cookie': f'client_key={client_key}'})
+
+        split_payload = {
+            'header': {
+                'fn': 'text_analysis',
+                'client_key': client_key,
+            },
+            'type': 'plain',
+            'text': query_text,
+            'normalize': {'merge_broken_line': 'false'}
+        }
+        split_data = (await self.async_session.post(self.api_url, json=split_payload, headers=self.api_headers, timeout=timeout)).json()
+        text_list = self.split_sentence(split_data)
+
+        api_payload = {
+            'header': {
+                'fn': 'auto_translation',
+                'client_key': client_key,
+            },
+            'type': 'plain',
+            'model_category': 'normal',
+            'source': {
+                'lang': from_language,
+                'text_list': [''] + text_list + [''],
+            },
+            'target': {'lang': to_language}
+        }
+        r = await self.async_session.post(self.api_url, json=api_payload, headers=self.api_headers, timeout=timeout)
+        r.raise_for_status()
+        data = r.json()
+        await asyncio.sleep(sleep_seconds)
+        self.query_count += 1
+        return data if is_detail_result else ''.join(data['auto_translation'])
+
 
 class AlibabaV1(Tse):
     def __init__(self):
@@ -1973,6 +2359,12 @@ class AlibabaV1(Tse):
     def get_language_map(self, ss: SessionType, lang_url: str, use_domain: str, dmtrack_pageid: str, timeout: Optional[float], **kwargs: LangMapKwargsType) -> dict:
         params = {'dmtrack_pageid': dmtrack_pageid, 'biz_type': use_domain}
         language_dict = ss.get(lang_url, params=params, headers=self.host_headers, timeout=timeout).json()
+        return dict(map(lambda x: x, [(x['sourceLuange'], x['targetLanguages']) for x in language_dict['languageMap']]))
+
+    @Tse.debug_language_map
+    async def get_language_map_async(self, ss: AsyncSessionType, lang_url: str, use_domain: str, dmtrack_pageid: str, timeout: Optional[float], **kwargs: LangMapKwargsType) -> dict:
+        params = {'dmtrack_pageid': dmtrack_pageid, 'biz_type': use_domain}
+        language_dict = (await ss.get(lang_url, params=params, headers=self.host_headers, timeout=timeout)).json()
         return dict(map(lambda x: x, [(x['sourceLuange'], x['targetLanguages']) for x in language_dict['languageMap']]))
 
     @Tse.time_stat
@@ -2039,6 +2431,78 @@ class AlibabaV1(Tse):
         r.raise_for_status()
         data = r.json()
         time.sleep(sleep_seconds)
+        self.query_count += 1
+        return data if is_detail_result else data['listTargetText'][0]
+
+    @Tse.time_stat
+    @Tse.check_query
+    async def alibaba_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en', **kwargs: ApiKwargsType) -> Union[str, dict]:
+        """
+        https://translate.alibaba.com
+        :param query_text: str, must.
+        :param from_language: str, default 'auto'.
+        :param to_language: str, default 'en'.
+        :param **kwargs:
+                :param timeout: Optional[float], default None.
+                :param proxies: Optional[dict], default None.
+                :param sleep_seconds: float, default 0.
+                :param is_detail_result: bool, default False.
+                :param http_client: str, default 'niquests'. Union['niquests', 'httpx']
+                :param if_ignore_limit_of_length: bool, default False.
+                :param limit_of_length: int, default 20000.
+                :param if_ignore_empty_query: bool, default False.
+                :param update_session_after_freq: int, default 1000.
+                :param update_session_after_seconds: float, default 1500.
+                :param if_show_time_stat: bool, default False.
+                :param show_time_stat_precision: int, default 2.
+                :param if_print_warning: bool, default True.
+                :param professional_field: str, default 'message', choose from ("general","message","offer")
+        :return: str or dict
+        """
+
+        use_domain = kwargs.get('professional_field', 'message')
+        if use_domain not in self.professional_field:
+            raise TranslatorError
+
+        timeout = kwargs.get('timeout', None)
+        proxies = kwargs.get('proxies', None)
+        sleep_seconds = kwargs.get('sleep_seconds', 0)
+        http_client = kwargs.get('http_client', 'niquests')
+        if_print_warning = kwargs.get('if_print_warning', True)
+        is_detail_result = kwargs.get('is_detail_result', False)
+        update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
+        update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
+        self.check_input_limit(query_text, self.input_limit)
+
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
+        not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
+        if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.dmtrack_pageid):
+            self.begin_time = time.time()
+            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            host_response = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
+            # Need to access cookies from response or session. niquests/httpx handles cookies in session usually.
+            # get_dmtrack_pageid might need adaptation if it reads cookies from response object structure difference.
+            # Assuming basic structure compatibility or cookies in session.
+            # For simplicity, we assume get_dmtrack_pageid works with the async response object or we extract cookies manually if needed.
+            # niquests response has .cookies similar to requests.
+            self.dmtrack_pageid = self.get_dmtrack_pageid(host_response)
+            debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
+            self.language_map = await self.get_language_map_async(self.async_session, self.get_language_url, use_domain, self.dmtrack_pageid, timeout, **debug_lang_kwargs)
+
+        from_language, to_language = self.check_language(from_language, to_language, self.language_map, output_zh=self.output_zh)
+        payload = {
+            "srcLanguage": from_language,
+            "tgtLanguage": to_language,
+            "srcText": query_text,
+            "bizType": use_domain,
+            "viewType": "",
+            "source": "",
+        }
+        params = {"dmtrack_pageid": self.dmtrack_pageid}
+        r = await self.async_session.post(self.api_url, headers=self.api_headers, params=params, data=payload, timeout=timeout)
+        r.raise_for_status()
+        data = r.json()
+        await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['listTargetText'][0]
 
