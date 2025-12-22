@@ -54,7 +54,7 @@ import cryptography.hazmat.primitives.padding as cry_padding
 import cryptography.hazmat.primitives.hashes as cry_hashes
 import cryptography.hazmat.primitives.serialization as cry_serialization
 import cryptography.hazmat.primitives.asymmetric.padding as cry_asym_padding
-from typing import Literal
+
 
 LangMapKwargsType = Union[str, bool]
 ApiKwargsType = Union[str, int, float, bool, dict]
@@ -100,6 +100,8 @@ class Tse:
         self.transform_en_translator_pool = ('itranslate', 'lingvanex', 'myMemory', 'apertium', 'cloudTranslation', 'translateMe')
         self.auto_pool = ('auto', 'detect', 'auto-detect', 'all')
         self.zh_pool = ('zh', 'zh-CN', 'zh-cn', 'zh-CHS', 'zh-Hans', 'zh-Hans_CN', 'cn', 'chi', 'Chinese')
+        self.session = None
+        self.async_session = None
 
     @staticmethod
     def time_stat(func):
@@ -244,7 +246,7 @@ class Tse:
                     warnings.warn(f'GetLanguageMapError: {str(e)}.\nThe function make_temp_language_map() works.')
                 return make_temp_language_map(kwargs.get('from_language'), kwargs.get('to_language'), kwargs.get('default_from_language'))
         return _wrapper
-    
+
     @staticmethod
     def check_input_limit(query_text: str, input_limit: int) -> None:
         if len(query_text) > input_limit:
@@ -335,7 +337,7 @@ class Tse:
         return session
 
     @staticmethod
-    def get_async_client_session(http_client: Literal["httpx", "niquests"] = 'httpx', proxies: Optional[dict] = None) -> AsyncSessionType:
+    def get_async_client_session(http_client: str = 'niquests', proxies: Optional[dict] = None) -> AsyncSessionType:
         if http_client not in ( 'niquests', 'httpx'):
             raise TranslatorError
 
@@ -431,7 +433,6 @@ class GoogleV1(Tse):
         self.host_headers = None
         self.language_map = None
         self.session = None
-        self.async_session = None
         self.query_count = 0
         self.output_zh = 'zh-CN'
         self.input_limit = int(5e3)
@@ -634,7 +635,7 @@ class GoogleV1(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
+        http_client= kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -649,7 +650,7 @@ class GoogleV1(Tse):
             host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
 
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
-            self.language_map = self.get_language_map(host_html, self.session, timeout, **debug_lang_kwargs)
+            self.language_map = self.get_language_map(host_html, self.async_session, timeout, **debug_lang_kwargs)
             from_language, to_language = self.check_language(from_language, to_language, self.language_map, output_zh=self.output_zh)
 
             tkk = self.get_tkk(host_html)
@@ -683,7 +684,6 @@ class GoogleV2(Tse):
         self.api_headers = None
         self.language_map = None
         self.session = None
-        self.async_session = None
         self.rpcid = 'MkEWBc'
         self.query_count = 0
         self.output_zh = 'zh-CN'
@@ -904,6 +904,14 @@ class BaiduV1(Tse):
         lang_list = sorted(list(set(lang_list)))
         return {}.fromkeys(lang_list, lang_list)
 
+    @Tse.debug_language_map
+    async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float], **kwargs: LangMapKwargsType) -> dict:
+        js_html = (await ss.get(lang_url, headers=headers, timeout=timeout)).text
+        lang_str = re.compile('exports={auto:(.*?)}}}},').search(js_html).group()[8:-3]
+        lang_list = re.compile('(\\w+):{zhName:').findall(lang_str)
+        lang_list = sorted(list(set(lang_list)))
+        return {}.fromkeys(lang_list, lang_list)
+
     @Tse.uncertified
     @Tse.time_stat
     @Tse.check_query
@@ -973,6 +981,75 @@ class BaiduV1(Tse):
         return data if is_detail_result else '\n'.join([item['dst'] for item in data['data']])
 
 
+    @Tse.uncertified
+    @Tse.time_stat
+    @Tse.check_query
+    async def baidu_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en', **kwargs: ApiKwargsType) -> Union[str, dict]:
+        """
+        https://fanyi.baidu.com
+        :param query_text: str, must.
+        :param from_language: str, default 'auto'.
+        :param to_language: str, default 'en'.
+        :param **kwargs:
+                :param timeout: Optional[float], default None.
+                :param proxies: Optional[dict], default None.
+                :param sleep_seconds: float, default 0.
+                :param is_detail_result: bool, default False.
+                :param http_client: str, default 'requests'. Union['requests', 'niquests', 'httpx', 'cloudscraper']
+                :param if_ignore_limit_of_length: bool, default False.
+                :param limit_of_length: int, default 20000.
+                :param if_ignore_empty_query: bool, default False.
+                :param update_session_after_freq: int, default 1000.
+                :param update_session_after_seconds: float, default 1500.
+                :param if_show_time_stat: bool, default False.
+                :param show_time_stat_precision: int, default 2.
+                :param if_print_warning: bool, default True.
+        :return: str or dict
+        """
+
+        timeout = kwargs.get('timeout', None)
+        proxies = kwargs.get('proxies', None)
+        sleep_seconds = kwargs.get('sleep_seconds', 0)
+        http_client = kwargs.get('http_client', 'requests')
+        if_print_warning = kwargs.get('if_print_warning', True)
+        is_detail_result = kwargs.get('is_detail_result', False)
+        update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
+        update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
+        self.check_input_limit(query_text, self.input_limit)
+
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
+        not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
+        if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
+            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)  # must twice, send cookies.
+            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+
+            if not self.get_lang_url:
+                self.get_lang_url = re.compile(self.get_lang_url_pattern).search(host_html).group()
+
+            debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
+            self.language_map = await self.get_language_map_async(self.get_lang_url, self.async_session, self.host_headers, timeout, **debug_lang_kwargs)
+
+            # self.session.cookies.update({'ab_sr': f'1.0.1_{self.absr_v}=='})
+            # self.session.cookies.update({k: '1' for k in ['REALTIME_TRANS_SWITCH', 'FANYI_WORD_SWITCH', 'HISTORY_SWITCH', 'SOUND_SPD_SWITCH', 'SOUND_PREFER_SWITCH']})
+
+        from_language, to_language = self.check_language(from_language, to_language, self.language_map, output_zh=self.output_zh)
+
+        payload = {
+            'from': from_language,
+            'to': to_language,
+            'query': query_text,
+            'source': 'txt',
+        }
+        r = await self.async_session.post(self.api_url, data=payload, headers=self.api_headers, timeout=timeout)
+        r.raise_for_status()
+        data = r.json()
+        await asyncio.sleep(sleep_seconds)
+        self.query_count += 1
+        return data if is_detail_result else '\n'.join([item['dst'] for item in data['data']])
+
+
 class BaiduV2(Tse):
     def __init__(self):
         super().__init__()
@@ -999,6 +1076,14 @@ class BaiduV2(Tse):
 
     @Tse.debug_language_map
     def get_language_map(self, lang_url: str, ss: SessionType, headers: dict, timeout: Optional[float], **kwargs: LangMapKwargsType) -> dict:
+        js_html = ss.get(lang_url, headers=headers, timeout=timeout).text
+        lang_str = re.compile('exports={auto:(.*?)}}}},').search(js_html).group()[8:-3]
+        lang_list = re.compile('(\\w+):{zhName:').findall(lang_str)
+        lang_list = sorted(list(set(lang_list)))
+        return {}.fromkeys(lang_list, lang_list)
+
+    @Tse.debug_language_map
+    async def get_language_map_async(self, lang_url: str, ss: SessionType, headers: dict, timeout: Optional[float], **kwargs: LangMapKwargsType) -> dict:
         js_html = ss.get(lang_url, headers=headers, timeout=timeout).text
         lang_str = re.compile('exports={auto:(.*?)}}}},').search(js_html).group()[8:-3]
         lang_list = re.compile('(\\w+):{zhName:').findall(lang_str)
@@ -5939,11 +6024,11 @@ class TranslatorsServer:
             'translateCom': self.translateCom, 'translateMe': self.translateMe, 'utibet': self.utibet, 'volcEngine': self.volcEngine, 'yandex': self.yandex,
             'yeekit': self.yeekit, 'youdao': self.youdao,
         }
-        self.async_translators_dict = {
+        self.translators_dict_async = {
             'google': self.async_google,
         }
         self.translators_pool = list(self.translators_dict.keys())
-        self.async_translators_pool = list(self.async_translators_dict.keys())
+        self.translators_pool_async = list(self.translators_dict_async.keys())
         self.not_en_langs = {'utibet': 'ti', 'mglip': 'mon'}
         self.not_zh_langs = {'languageWire': 'fr', 'tilde': 'fr', 'elia': 'fr', 'apertium': 'spa', 'judic': 'de'}
         self.pre_acceleration_label = 0
@@ -6032,13 +6117,13 @@ class TranslatorsServer:
         :return: str or dict
         """
 
-        if translator not in self.async_translators_pool:
+        if translator not in self.translators_pool_async:
             raise TranslatorError
 
         if not self.pre_acceleration_label and if_use_preacceleration:
             _ = await self.preaccelerate_async()
 
-        return await self.async_translators_dict[translator](query_text=query_text, from_language=from_language, to_language=to_language, **kwargs)
+        return await self.translators_dict_async[translator](query_text=query_text, from_language=from_language, to_language=to_language, **kwargs)
 
     def translate_html(self,
                        html_text: str,
@@ -6116,7 +6201,7 @@ class TranslatorsServer:
     async def _test_translate_async(self, _ts: str, timeout: Optional[float] = None, if_show_time_stat: bool = False) -> str:
         from_language = self.not_zh_langs[_ts] if _ts in self.not_zh_langs else 'auto'
         to_language = self.not_en_langs[_ts] if _ts in self.not_en_langs else 'en'
-        result = await self.async_translators_dict[_ts](
+        result = await self.translators_dict_async[_ts](
             query_text=self.example_query_text,
             translator=_ts,
             from_language=from_language,
@@ -6168,8 +6253,8 @@ class TranslatorsServer:
                          'and the less time it takes to preaccelerate. However, the slow speed of '
                          'preacceleration does not mean the slow speed of later translation.\n\n')
 
-        for i in tqdm.tqdm(range(len(self.async_translators_pool)), desc='Preacceleration Process', ncols=80):
-            _ts = self.async_translators_pool[i]
+        for i in tqdm.tqdm(range(len(self.translators_pool_async)), desc='Preacceleration Process', ncols=80):
+            _ts = self.translators_pool_async[i]
             try:
                 _ = await self._test_translate_async(_ts, timeout, if_show_time_stat)
                 self.success_translators_pool.append(_ts)
