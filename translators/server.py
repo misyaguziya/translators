@@ -24,7 +24,7 @@ This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
 This is free software, and you are welcome to redistribute it
 under certain conditions; type `show c' for details.
 """
-
+import asyncio
 import os
 import re
 import sys
@@ -54,12 +54,14 @@ import cryptography.hazmat.primitives.padding as cry_padding
 import cryptography.hazmat.primitives.hashes as cry_hashes
 import cryptography.hazmat.primitives.serialization as cry_serialization
 import cryptography.hazmat.primitives.asymmetric.padding as cry_asym_padding
-
+from typing import Literal
 
 LangMapKwargsType = Union[str, bool]
 ApiKwargsType = Union[str, int, float, bool, dict]
 SessionType = Union[requests.sessions.Session, niquests.sessions.Session, httpx.Client]
 ResponseType = Union[requests.models.Response, niquests.models.Response, httpx.Response]
+AsyncSessionType = Union[niquests.async_session.AsyncSession, httpx.AsyncClient]
+AsyncResponseType = Union[niquests.models.AsyncResponse, httpx.Response]
 
 
 __all__ = [
@@ -332,6 +334,24 @@ class Tse:
             session.proxies = proxies
         return session
 
+    @staticmethod
+    def get_async_client_session(http_client: Literal["httpx", "niquests"] = 'httpx', proxies: Optional[dict] = None) -> AsyncSessionType:
+        if http_client not in ( 'niquests', 'httpx'):
+            raise TranslatorError
+
+        if proxies is None:
+            proxies = {}
+
+        if http_client == 'niquests':
+            session = niquests.AsyncSession(happy_eyeballs=True)
+            session.proxies = proxies
+        elif http_client == 'httpx':
+            proxy_url = proxies.get('http') or proxies.get('https')
+            session = httpx.AsyncClient(follow_redirects=True, proxy=proxy_url)
+        else:
+            raise TranslatorError
+        return session
+
 
 class Region(Tse):
     def __init__(self, default_region=None):
@@ -370,6 +390,34 @@ class Region(Tse):
         except Exception as e:
             raise TranslatorError('\n'.join([find_info, try_info, str(e)]))
 
+    async def get_region_of_server_async(self, if_judge_cn: bool = True, if_print_region: bool = True) -> str:
+        if self.default_region:
+            if if_print_region:
+                sys.stderr.write(f'Using customized region {self.default_region} server backend.\n\n')
+            return ('CN' if self.default_region in ('China', 'CN') else 'EN') if if_judge_cn else self.default_region
+
+        find_info = 'Unable to find server backend.'
+        connect_info = 'Unable to connect the Internet.'
+        try_info = 'Try `os.environ["translators_default_region"] = "EN" or "CN"` before `import translators`'
+
+        _headers_fn = lambda url: self.get_headers(url, if_api=False, if_referer_for_host=True)
+        try:
+            try:
+                data = json.loads((await niquests.aget(self.get_addr_url, headers=_headers_fn(self.get_addr_url))).text[9:-2])
+                if if_print_region:
+                    sys.stderr.write(f'Using region {data.get("stateName")} server backend.\n\n')
+                return data.get('country') if if_judge_cn else data.get("stateName")
+            except:
+                ip_address = (await niquests.aget(self.get_ip_url, headers=_headers_fn(self.get_ip_url))).json()['origin']
+                payload = {'ip': ip_address, 'accessKey': 'alibaba-inc'}
+                data = (await niquests.apost(url=self.ip_tb_add_url, data=payload, headers=_headers_fn(self.ip_tb_add_url))).json().get('data')
+                return data.get('country_id')  # region_id
+
+        except niquests.exceptions.ConnectionError as e:
+            raise TranslatorError('\n'.join([connect_info, try_info, str(e)]))
+        except Exception as e:
+            raise TranslatorError('\n'.join([find_info, try_info, str(e)]))
+
 
 class GoogleV1(Tse):
     def __init__(self, server_region='EN'):
@@ -383,6 +431,7 @@ class GoogleV1(Tse):
         self.host_headers = None
         self.language_map = None
         self.session = None
+        self.async_session = None
         self.query_count = 0
         self.output_zh = 'zh-CN'
         self.input_limit = int(5e3)
@@ -540,6 +589,84 @@ class GoogleV1(Tse):
         self.query_count += 1
         return data if is_detail_result else ''.join([item[0] for item in data[0] if isinstance(item[0], str)])
 
+    @Tse.time_stat
+    @Tse.check_query
+    async def google_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en', **kwargs: ApiKwargsType) -> Union[str, dict]:
+        """
+        https://translate.google.com, https://translate.google.cn.
+        :param query_text: str, must.
+        :param from_language: str, default 'auto'.
+        :param to_language: str, default 'en'.
+        :param **kwargs:
+                :param timeout: Optional[float], default None.
+                :param proxies: Optional[dict], default None.
+                :param sleep_seconds: float, default 0.
+                :param is_detail_result: bool, default False.
+                :param http_client: str, default 'niquests'. Union['niquests', 'httpx']
+                :param if_ignore_limit_of_length: bool, default False.
+                :param limit_of_length: int, default 20000.
+                :param if_ignore_empty_query: bool, default False.
+                :param update_session_after_freq: int, default 1000.
+                :param update_session_after_seconds: float, default 1500.
+                :param if_show_time_stat: bool, default False.
+                :param show_time_stat_precision: int, default 2.
+                :param if_print_warning: bool, default True.
+                :param if_use_cn_host: bool, default None.
+                :param reset_host_url: str, default None.
+                :param if_check_reset_host_url: bool, default True.
+        :return: str or dict
+        """
+
+        reset_host_url = kwargs.get('reset_host_url', None)
+        if reset_host_url and reset_host_url != self.host_url:
+            if kwargs.get('if_check_reset_host_url', True) and not reset_host_url[:25] == 'https://translate.google.':
+                raise TranslatorError
+            self.host_url = reset_host_url.strip('/')
+        else:
+            use_cn_condition = kwargs.get('if_use_cn_host', None) or self.server_region == 'CN'
+            self.host_url = self.cn_host_url if use_cn_condition else self.en_host_url
+
+        if self.host_url[-2:] == 'cn':
+            raise TranslatorError('Google service was offline in inland of China on Oct 2022.')
+
+        self.host_headers = self.host_headers or self.get_headers(self.host_url, if_api=False)
+
+        timeout = kwargs.get('timeout', None)
+        proxies = kwargs.get('proxies', None)
+        sleep_seconds = kwargs.get('sleep_seconds', 0)
+        http_client = kwargs.get('http_client', 'niquests')
+        if_print_warning = kwargs.get('if_print_warning', True)
+        is_detail_result = kwargs.get('is_detail_result', False)
+        update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
+        update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
+        self.check_input_limit(query_text, self.input_limit)
+
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
+        not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
+        if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.api_url):
+            self.begin_time = time.time()
+            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+
+            debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
+            self.language_map = self.get_language_map(host_html, self.session, timeout, **debug_lang_kwargs)
+            from_language, to_language = self.check_language(from_language, to_language, self.language_map, output_zh=self.output_zh)
+
+            tkk = self.get_tkk(host_html)
+            tk = self.acquire(query_text, tkk)
+
+            api_url_part_1 = '/translate_a/single?client={0}&sl={1}&tl={2}&hl=zh-CN&dt=at&dt=bd&dt=ex'.format('webapp', from_language, to_language)
+            api_url_part_2 = '&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&dt=t&ie=UTF-8&oe=UTF-8&source=bh&ssel=0&tsel=0&kc=1'
+            api_url_part_3 = '&tk={0}&q={1}'.format(tk, urllib.parse.quote(query_text))
+            self.api_url = ''.join([self.host_url, api_url_part_1, api_url_part_2, api_url_part_3])  # [t,webapp]
+
+        r = await self.async_session.get(self.api_url, headers=self.host_headers, timeout=timeout)
+        r.raise_for_status()
+        data = r.json()
+        await asyncio.sleep(sleep_seconds)
+        self.query_count += 1
+        return data if is_detail_result else ''.join([item[0] for item in data[0] if isinstance(item[0], str)])
+
 
 class GoogleV2(Tse):
     def __init__(self, server_region='EN'):
@@ -556,6 +683,7 @@ class GoogleV2(Tse):
         self.api_headers = None
         self.language_map = None
         self.session = None
+        self.async_session = None
         self.rpcid = 'MkEWBc'
         self.query_count = 0
         self.output_zh = 'zh-CN'
@@ -663,6 +791,85 @@ class GoogleV2(Tse):
         json_data = json.loads(r.text[6:])
         data = json.loads(json_data[0][2])
         time.sleep(sleep_seconds)
+        self.query_count += 1
+        return {'data': data} if is_detail_result else ' '.join([x[0] for x in (data[1][0][0][5] or data[1][0]) if x[0]])
+
+    @Tse.time_stat
+    @Tse.check_query
+    async def google_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en', **kwargs: ApiKwargsType) -> Union[str, dict]:
+        """
+        https://translate.google.com, https://translate.google.cn.
+        :param query_text: str, must.
+        :param from_language: str, default 'auto'.
+        :param to_language: str, default 'en'.
+        :param **kwargs:
+                :param timeout: Optional[float], default None.
+                :param proxies: Optional[dict], default None.
+                :param sleep_seconds: float, default 0.
+                :param is_detail_result: bool, default False.
+                :param http_client: str, default 'requests'. Union['requests', 'niquests', 'httpx', 'cloudscraper']
+                :param if_ignore_limit_of_length: bool, default False.
+                :param limit_of_length: int, default 20000.
+                :param if_ignore_empty_query: bool, default False.
+                :param update_session_after_freq: int, default 1000.
+                :param update_session_after_seconds: float, default 1500.
+                :param if_show_time_stat: bool, default False.
+                :param show_time_stat_precision: int, default 2.
+                :param if_print_warning: bool, default True.
+                :param reset_host_url: str, default None.
+                :param if_check_reset_host_url: bool, default True.
+        :return: str or dict
+        """
+
+        reset_host_url = kwargs.get('reset_host_url', None)
+        if reset_host_url and reset_host_url != self.host_url:
+            if kwargs.get('if_check_reset_host_url', True) and not reset_host_url[:25] == 'https://translate.google.':
+                raise TranslatorError
+            self.host_url = reset_host_url.strip('/')
+        else:
+            use_cn_condition = kwargs.get('if_use_cn_host', None) or self.server_region == 'CN'
+            self.host_url = self.cn_host_url if use_cn_condition else self.en_host_url
+
+        if self.host_url[-2:] == 'cn':
+            raise TranslatorError('Google service was offline in inland of China on Oct 2022.')
+
+        self.api_url = f'{self.host_url}{self.api_url_path}'
+        self.host_headers = self.host_headers or self.get_headers(self.host_url, if_api=False)  # reuse cookie header
+        self.api_headers = self.get_headers(self.host_url, if_api=True, if_referer_for_host=True, if_ajax_for_api=True)
+
+        timeout = kwargs.get('timeout', None)
+        proxies = kwargs.get('proxies', None)
+        sleep_seconds = kwargs.get('sleep_seconds', 0)
+        http_client = kwargs.get('http_client', 'niquests')
+        if_print_warning = kwargs.get('if_print_warning', True)
+        is_detail_result = kwargs.get('is_detail_result', False)
+        update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
+        update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
+        self.check_input_limit(query_text, self.input_limit)
+
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
+        not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
+        if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
+            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            r = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
+            if urllib.parse.urlparse(self.consent_url).hostname == urllib.parse.urlparse(str(r.url)).hostname:
+                form_data = self.get_consent_data(r.text)
+                host_html = (await self.async_session.post(self.consent_url, data=form_data, headers=self.host_headers, timeout=timeout)).text
+            else:
+                host_html = r.text
+            debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language, if_print_warning)
+            self.language_map = self.get_language_map(host_html, **debug_lang_kwargs)
+
+        from_language, to_language = self.check_language(from_language, to_language, self.language_map, output_zh=self.output_zh)
+
+        rpc_data = self.get_rpc(query_text, from_language, to_language)
+        rpc_data = urllib.parse.urlencode(rpc_data)
+        r = await self.async_session.post(self.api_url, headers=self.api_headers, data=rpc_data, timeout=timeout)
+        r.raise_for_status()
+        json_data = json.loads(r.text[6:])
+        data = json.loads(json_data[0][2])
+        await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return {'data': data} if is_detail_result else ' '.join([x[0] for x in (data[1][0][0][5] or data[1][0]) if x[0]])
 
@@ -5657,6 +5864,7 @@ class TranslatorsServer:
         self.elia = self._elia.elia_api
         self._google = GoogleV2(server_region=self.server_region)
         self.google = self._google.google_api
+        self.async_google = self._google.google_api_async
         self._hujiang = Hujiang()
         self.hujiang = self._hujiang.hujiang_api
         self._iciba = Iciba()
@@ -5731,7 +5939,11 @@ class TranslatorsServer:
             'translateCom': self.translateCom, 'translateMe': self.translateMe, 'utibet': self.utibet, 'volcEngine': self.volcEngine, 'yandex': self.yandex,
             'yeekit': self.yeekit, 'youdao': self.youdao,
         }
+        self.async_translators_dict = {
+            'google': self.async_google,
+        }
         self.translators_pool = list(self.translators_dict.keys())
+        self.async_translators_pool = list(self.async_translators_dict.keys())
         self.not_en_langs = {'utibet': 'ti', 'mglip': 'mon'}
         self.not_zh_langs = {'languageWire': 'fr', 'tilde': 'fr', 'elia': 'fr', 'apertium': 'spa', 'judic': 'de'}
         self.pre_acceleration_label = 0
@@ -5783,6 +5995,50 @@ class TranslatorsServer:
             _ = self.preaccelerate()
 
         return self.translators_dict[translator](query_text=query_text, from_language=from_language, to_language=to_language, **kwargs)
+    async def translate_text_async(self,
+                       query_text: str,
+                       translator: str = 'google',
+                       from_language: str = 'auto',
+                       to_language: str = 'en',
+                       if_use_preacceleration: bool = False,
+                       **kwargs: ApiKwargsType,
+                       ) -> Union[str, dict]:
+        """
+        :param query_text: str, must.
+        :param translator: str, default 'alibaba'.
+        :param from_language: str, default 'auto'.
+        :param to_language: str, default 'en'.
+        :param if_use_preacceleration: bool, default False.
+        :param **kwargs:
+                :param is_detail_result: bool, default False.
+                :param http_client: str, default 'requests' (except reverso). Union['requests', 'niquests', 'httpx', 'cloudscraper']
+                :param professional_field: str, support alibaba(), baidu(), caiyun(), cloudTranslation(), elia(), sysTran(), youdao(), volcEngine() only.
+                :param timeout: Optional[float], default None.
+                :param proxies: Optional[dict], default None.
+                :param sleep_seconds: float, default 0.
+                :param update_session_after_freq: int, default 1000.
+                :param update_session_after_seconds: float, default 1500.
+                :param if_use_cn_host: bool, default False. Support google(), bing() only.
+                :param reset_host_url: str, default None. Support google(), yandex() only.
+                :param if_check_reset_host_url: bool, default True. Support google(), yandex() only.
+                :param if_ignore_empty_query: bool, default True.
+                :param if_ignore_limit_of_length: bool, default False.
+                :param limit_of_length: int, default 20000.
+                :param if_show_time_stat: bool, default False.
+                :param show_time_stat_precision: int, default 2.
+                :param if_print_warning: bool, default True.
+                :param lingvanex_model: str, default 'B2C', choose from ("B2C", "B2B").
+                :param myMemory_mode: str, default "web", choose from ("web", "api").
+        :return: str or dict
+        """
+
+        if translator not in self.async_translators_pool:
+            raise TranslatorError
+
+        if not self.pre_acceleration_label and if_use_preacceleration:
+            _ = await self.preaccelerate_async()
+
+        return await self.async_translators_dict[translator](query_text=query_text, from_language=from_language, to_language=to_language, **kwargs)
 
     def translate_html(self,
                        html_text: str,
@@ -5857,7 +6113,20 @@ class TranslatorsServer:
             if_show_time_stat=if_show_time_stat
         )
         return result
-    
+    async def _test_translate_async(self, _ts: str, timeout: Optional[float] = None, if_show_time_stat: bool = False) -> str:
+        from_language = self.not_zh_langs[_ts] if _ts in self.not_zh_langs else 'auto'
+        to_language = self.not_en_langs[_ts] if _ts in self.not_en_langs else 'en'
+        result = await self.async_translators_dict[_ts](
+            query_text=self.example_query_text,
+            translator=_ts,
+            from_language=from_language,
+            to_language=to_language,
+            if_print_warning=False,
+            timeout=timeout,
+            if_show_time_stat=if_show_time_stat
+        )
+        return result
+
     def get_languages(self, translator: str = 'bing'):
         language_map = self._translators_dict[translator].language_map
         if language_map:
@@ -5881,6 +6150,28 @@ class TranslatorsServer:
             _ts = self.translators_pool[i]
             try:
                 _ = self._test_translate(_ts, timeout, if_show_time_stat)
+                self.success_translators_pool.append(_ts)
+            except:
+                self.failure_translators_pool.append(_ts)
+
+            self.pre_acceleration_label += 1
+        return {'success': self.success_translators_pool, 'failure': self.failure_translators_pool}
+
+    async def preaccelerate_async(self, timeout: Optional[float] = None, if_show_time_stat: bool = True, **kwargs: str) -> dict:
+        if self.pre_acceleration_label > 0:
+            raise TranslatorError('Preacceleration can only be performed once.')
+
+        self.example_query_text = kwargs.get('example_query_text', self.example_query_text)
+
+        sys.stderr.write('Preacceleration-Process will take a few minutes.\n')
+        sys.stderr.write('Tips: The smaller `timeout` value, the fewer translators pass the test '
+                         'and the less time it takes to preaccelerate. However, the slow speed of '
+                         'preacceleration does not mean the slow speed of later translation.\n\n')
+
+        for i in tqdm.tqdm(range(len(self.async_translators_pool)), desc='Preacceleration Process', ncols=80):
+            _ts = self.async_translators_pool[i]
+            try:
+                _ = await self._test_translate_async(_ts, timeout, if_show_time_stat)
                 self.success_translators_pool.append(_ts)
             except:
                 self.failure_translators_pool.append(_ts)
@@ -5988,6 +6279,7 @@ _youdao = tss._youdao
 youdao = tss.youdao
 
 translate_text = tss.translate_text
+translate_text_async = tss.translate_text_async
 translate_html = tss.translate_html
 translators_pool = tss.translators_pool
 get_languages = tss.get_languages
