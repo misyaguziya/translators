@@ -281,7 +281,6 @@ class Tse:
                     warnings.warn(f'GetLanguageMapError: {str(e)}.\nThe function make_temp_language_map() works.')
                 return make_temp_language_map(kwargs.get('from_language'), kwargs.get('to_language'),
                                               kwargs.get('default_from_language'))
-
         return _async_wrapper if asyncio.iscoroutinefunction(func) else _wrapper
 
     @staticmethod
@@ -669,7 +668,7 @@ class GoogleV1(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def google_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                                **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://translate.google.com, https://translate.google.cn.
@@ -884,7 +883,7 @@ class GoogleV2(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def google_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                                **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://translate.google.com, https://translate.google.cn.
@@ -1082,7 +1081,7 @@ class BaiduV1(Tse):
     @Tse.uncertified
     @Tse.time_stat
     @Tse.check_query
-    async def baidu_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://fanyi.baidu.com
@@ -1328,7 +1327,7 @@ class BaiduV2(Tse):
     @Tse.uncertified
     @Tse.time_stat
     @Tse.check_query
-    async def baidu_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://fanyi.baidu.com
@@ -1577,7 +1576,7 @@ class YoudaoV1(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def youdao_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                                **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://fanyi.youdao.com
@@ -1801,7 +1800,7 @@ class YoudaoV2(Tse):
     @Tse.uncertified
     @Tse.time_stat
     @Tse.check_query
-    async def youdao_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                                **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://fanyi.youdao.com
@@ -1972,7 +1971,7 @@ class YoudaoV3(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def youdao_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                                **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://ai.youdao.com/product-fanyi-text.s
@@ -2144,7 +2143,7 @@ class QQFanyi(Tse):
     @Tse.uncertified  # todo: need ticket and randstr of TCaptcha.
     @Tse.time_stat
     @Tse.check_query
-    async def qqFanyi_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                                 **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://fanyi.qq.com
@@ -2348,7 +2347,7 @@ class QQTranSmart(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def qqTranSmart_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                                     **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://transmart.qq.com
@@ -2564,7 +2563,7 @@ class AlibabaV1(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def alibaba_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                                 **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://translate.alibaba.com
@@ -2756,7 +2755,7 @@ class AlibabaV2(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def alibaba_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                                 **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://translate.alibaba.com
@@ -2779,6 +2778,9 @@ class AlibabaV2(Tse):
                 :param if_print_warning: bool, default True.
         :return: str or dict
         """
+        use_domain = kwargs.get('professional_field', 'general')
+        if use_domain not in self.professional_field:
+            raise TranslatorError
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
@@ -2791,26 +2793,34 @@ class AlibabaV2(Tse):
 
         not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
-        if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
+        if not (
+                self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.csrf_token):
             self.begin_time = time.time()
             self.async_session = Tse.get_async_client_session(http_client, proxies)
             host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.get_language_url = f'https:{re.compile(self.get_language_pattern).search(host_html).group()}'
+            lang_html = (await self.async_session.get(self.get_language_url, headers=self.host_headers, timeout=timeout)).text
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = self.get_language_map(host_html, **debug_lang_kwargs)
+            self.language_map = self.get_language_map(lang_html, **debug_lang_kwargs)
+            self.detail_language_map = self.get_d_lang_map(lang_html)
 
-        from_language, to_language = self.check_language(from_language, to_language, self.language_map,
-                                                         output_zh=self.output_zh)
+            _ = await self.async_session.get(self.csrf_url, headers=self.host_headers, timeout=timeout)
+            self.csrf_token = (await self.async_session.get(self.csrf_url, headers=self.host_headers, timeout=timeout)).json()
+            self.api_headers.update({self.csrf_token['headerName']: self.csrf_token['token']})
 
+        from_language, to_language = self.check_language(from_language, to_language, self.language_map, self.output_zh)
         files_data = {
+            'query': (None, query_text),
             'srcLang': (None, from_language),
             'tgtLang': (None, to_language),
+            '_csrf': (None, self.csrf_token['token']),
             'domain': (None, self.professional_field[0]),
         }  # Content-Type: multipart/form-data
         r = await self.async_session.post(self.api_url, files=files_data, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
         data = r.json()
-        await asyncio.sleep(sleep_seconds)
+        time.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['data']['translateText']
 
@@ -2938,7 +2948,7 @@ class Bing(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def bing_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                              **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://bing.com/Translator, https://cn.bing.com/Translator.
@@ -3147,7 +3157,7 @@ class Sogou(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def sogou_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://fanyi.sogou.com/text
@@ -3369,7 +3379,7 @@ class Caiyun(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def caiyun_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                                **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://fanyi.caiyunapp.com
@@ -3615,7 +3625,7 @@ class Deepl(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def deepl_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                   **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://www.deepl.com
@@ -3857,7 +3867,7 @@ class YandexV1(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def yandex_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                    **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://translate.yandex.com
@@ -4061,7 +4071,7 @@ class YandexV2(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def yandex_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                                **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://browser.translate.yandex.net
@@ -4234,7 +4244,7 @@ class Argos(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def argos_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://libretranslate.com
@@ -4451,7 +4461,7 @@ class Iciba(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def iciba_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                   **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://www.iciba.com/fy
@@ -4641,7 +4651,7 @@ class IflytekV1(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def iflytek_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                     **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://saas.xfyun.cn/translate?tabKey=text
@@ -4821,7 +4831,7 @@ class IflytekV2(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def iflytek_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                     **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://fanyi.xfyun.cn/console/trans/text
@@ -4984,7 +4994,7 @@ class Iflyrec(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def iflyrec_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                     **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://fanyi.iflyrec.com
@@ -5165,7 +5175,7 @@ class Reverso(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def reverso_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                     **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://www.reverso.net/text-translation
@@ -5343,7 +5353,7 @@ class Itranslate(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def itranslate_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                        **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://itranslate.com/translate
@@ -5506,7 +5516,7 @@ class TranslateCom(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def translateCom_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                                      **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://www.translate.com/machine-translation
@@ -5655,7 +5665,7 @@ class Utibet(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def utibet_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'ti',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'ti',
                                **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         http://mt.utibet.edu.cn/mt
@@ -5836,7 +5846,7 @@ class Papago(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def papago_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                                **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://papago.naver.com
@@ -6064,7 +6074,7 @@ class LingvanexV1(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def lingvanex_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                       **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://lingvanex.com/translate/
@@ -6257,7 +6267,7 @@ class LingvanexV2(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def lingvanex_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                       **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://lingvanex.com/en/translate/
@@ -6469,7 +6479,7 @@ class NiutransV1(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def niutrans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                      **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         http://display.niutrans.com
@@ -6734,7 +6744,7 @@ class NiutransV2(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def niutrans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                      **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://niutrans.com/trans?type=text
@@ -6895,7 +6905,7 @@ class Mglip(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def mglip_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'mon',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'mon',
                   **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         http://fy.mglip.com/pc
@@ -7073,7 +7083,7 @@ class VolcEngine(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def volcEngine_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                        **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://translate.volcengine.com
@@ -7248,7 +7258,7 @@ class ModernMt(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def modernMt_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                      **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://www.modernmt.com/translate
@@ -7430,7 +7440,7 @@ class MyMemory(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def myMemory_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                      **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://mymemory.translated.net
@@ -7632,7 +7642,7 @@ class Mirai(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def mirai_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'ja',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'ja',
                   **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://miraitranslate.com/en/trial/
@@ -7826,7 +7836,7 @@ class Apertium(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def apertium_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                      **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://www.apertium.org/
@@ -8005,7 +8015,7 @@ class Tilde(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def tilde_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                   **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://translate.tilde.com/
@@ -8196,7 +8206,7 @@ class cloudTranslationV1(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def cloudTranslation_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                              **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://www.cloudtranslation.com/#/translate
@@ -8397,7 +8407,7 @@ class cloudTranslationV2(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def cloudTranslation_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                              **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://online.cloudtranslation.com
@@ -8643,7 +8653,7 @@ class SysTran(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def sysTran_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                     **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://www.systran.net/translate/, https://www.systransoft.com/translate/
@@ -8840,7 +8850,7 @@ class TranslateMe(Tse):
     @Tse.uncertified
     @Tse.time_stat
     @Tse.check_query
-    async def _translateMe_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                          **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://translateme.network/
@@ -8974,7 +8984,7 @@ class TranslateMe(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def translateMe_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                                     **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://translateme.network/
@@ -9159,7 +9169,7 @@ class Elia(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def elia_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                  **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://elia.eus/translator
@@ -9370,7 +9380,7 @@ class LanguageWire(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def languageWire_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                          **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://www.languagewire.com/en/technology/languagewire-translate
@@ -9526,7 +9536,7 @@ class Judic(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def judic_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                   **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://judic.io/en/translate
@@ -9676,7 +9686,7 @@ class Yeekit(Tse):
 
     @Tse.time_stat
     @Tse.check_query
-    async def yeekit_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                    **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
         https://www.yeekit.com/site/translate
@@ -9822,6 +9832,67 @@ class Hujiang(Tse):
         self.query_count += 1
         return data if is_detail_result else data['data']['content']  # supported by baidu.
 
+    @Tse.time_stat
+    @Tse.check_query
+    async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
+                    **kwargs: ApiKwargsType) -> Union[str, dict]:
+        """
+        https://dict.hjenglish.com/app/trans
+        :param query_text: str, must.
+        :param from_language: str, default 'auto'.
+        :param to_language: str, default 'en'.
+        :param **kwargs:
+                :param timeout: Optional[float], default None.
+                :param proxies: Optional[dict], default None.
+                :param sleep_seconds: float, default 0.
+                :param is_detail_result: bool, default False.
+                :param http_client: str, default 'requests'. Union['requests', 'niquests', 'httpx', 'cloudscraper']
+                :param if_ignore_limit_of_length: bool, default False.
+                :param limit_of_length: int, default 20000.
+                :param if_ignore_empty_query: bool, default False.
+                :param update_session_after_freq: int, default 1000.
+                :param update_session_after_seconds: float, default 1500.
+                :param if_show_time_stat: bool, default False.
+                :param show_time_stat_precision: int, default 2.
+                :param if_print_warning: bool, default True.
+        :return: str or dict
+        """
+
+        timeout = kwargs.get('timeout', None)
+        proxies = kwargs.get('proxies', None)
+        sleep_seconds = kwargs.get('sleep_seconds', 0)
+        http_client = kwargs.get('http_client', 'requests')
+        if_print_warning = kwargs.get('if_print_warning', True)
+        is_detail_result = kwargs.get('is_detail_result', False)
+        update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
+        update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
+        self.check_input_limit(query_text, self.input_limit)
+
+        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
+        not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
+        if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
+            self.begin_time = time.time()
+            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            self.async_session.cookies.update({'HJ_UID': self.hj_uid, 'HJC_USRC': 'uzhi', 'HJC_NUID': '1'})
+            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
+                                                       if_print_warning)
+            self.language_map = self.get_language_map(host_html, **debug_lang_kwargs)
+
+        if from_language == 'auto':
+            from_language = self.warning_auto_lang('hujiang', self.default_from_language, if_print_warning)
+        from_language, to_language = self.check_language(from_language, to_language, self.language_map,
+                                                         output_zh=self.output_zh)
+
+        payload = urllib.parse.urlencode({'content': query_text})
+        api_url = f'{self.api_url}/{from_language}/{to_language}'
+        r = await self.async_session.post(api_url, headers=self.api_headers, data=payload, timeout=timeout)
+        r.raise_for_status()
+        data = r.json()
+        time.sleep(sleep_seconds)
+        self.query_count += 1
+        return data if is_detail_result else data['data']['content']  # supported by baidu.
+
 
 class TranslatorsServer:
     def __init__(self):
@@ -9849,7 +9920,7 @@ class TranslatorsServer:
         self.elia = self._elia.elia_api
         self._google = GoogleV2(server_region=self.server_region)
         self.google = self._google.google_api
-        self.async_google = self._google.google_api_async
+        self.async_google = self._google.trans_api_async
         self._hujiang = Hujiang()
         self.hujiang = self._hujiang.hujiang_api
         self._iciba = Iciba()
@@ -9938,8 +10009,15 @@ class TranslatorsServer:
             'volcEngine': self.volcEngine, 'yandex': self.yandex,
             'yeekit': self.yeekit, 'youdao': self.youdao,
         }
+
+        self.translators_list = ['alibaba', 'apertium', 'argos', 'baidu', 'bing', 'caiyun', 'cloudTranslation', 'deepl', 'elia', 'google',
+         'hujiang', 'iciba', 'iflytek', 'iflyrec', 'itranslate', 'judic', 'languageWire', 'lingvanex', 'niutrans',
+         'mglip', 'mirai', 'modernMt', 'myMemory', 'papago', 'qqFanyi', 'qqTranSmart', 'reverso', 'sogou', 'sysTran',
+         'tilde', 'translateCom', 'translateMe', 'utibet', 'volcEngine', 'yandex', 'yeekit', 'youdao']
+
         self.translators_dict_async = {
-            'google': self.async_google,
+            tran: getattr(self, f"_{tran}").trans_api_async
+            for tran in self.translators_list
         }
         self.translators_pool = list(self.translators_dict.keys())
         self.translators_pool_async = list(self.translators_dict_async.keys())
