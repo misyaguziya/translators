@@ -33,42 +33,12 @@ import pathos.multiprocessing as pathos_multiprocessing
 import tqdm
 
 from translators.base import TranslatorError, ApiKwargsType
-from translators.providers.alibaba import AlibabaV2
-from translators.providers.apertium import Apertium
-from translators.providers.argos import Argos
-from translators.providers.baidu import BaiduV1
-from translators.providers.bing import Bing
-from translators.providers.caiyun import Caiyun
-from translators.providers.cloudTranslation import cloudTranslationV2
-from translators.providers.deepl import Deepl
-from translators.providers.elia import Elia
-from translators.providers.fanyi import QQFanyi
-from translators.providers.google import GoogleV2
-from translators.providers.hujiang import Hujiang
-from translators.providers.iciba import Iciba
-from translators.providers.iflytek import IflytekV2, Iflyrec
-from translators.providers.itranslate import Itranslate
-from translators.providers.judic import Judic
-from translators.providers.languageWire import LanguageWire
-from translators.providers.lingvanex import LingvanexV2
-from translators.providers.mglip import Mglip
-from translators.providers.mirai import Mirai
-from translators.providers.modernMt import ModernMt
-from translators.providers.myMemory import MyMemory
-from translators.providers.niutrans import NiutransV2
-from translators.providers.papago import Papago
-from translators.providers.reverso import Reverso
-from translators.providers.sogou import Sogou
-from translators.providers.sysTran import SysTran
-from translators.providers.tilde import Tilde
-from translators.providers.translateCom import TranslateCom
-from translators.providers.translateMe import TranslateMe
-from translators.providers.transmart import QQTranSmart
-from translators.providers.utibet import Utibet
-from translators.providers.volcEngine import VolcEngine
-from translators.providers.yandex import YandexV2
-from translators.providers.yeekit import Yeekit
-from translators.providers.youdao import YoudaoV3
+from translators.providers import (
+    AlibabaV2, Apertium, Argos, BaiduV1, Bing, Caiyun, cloudTranslationV2, Deepl, Elia,
+    QQFanyi, GoogleV2, Hujiang, Iciba, IflytekV2, Iflyrec, Itranslate, Judic,
+    LanguageWire, LingvanexV2, Mglip, Mirai, ModernMt, MyMemory, NiutransV2, Papago,
+    Reverso, Sogou, SysTran, Tilde, TranslateCom, TranslateMe, QQTranSmart, Utibet,
+    VolcEngine, YandexV2, Yeekit, YoudaoV3)
 from translators.utils import Region
 
 __all__ = [
@@ -92,6 +62,7 @@ __all__ = [
     '_translateCom', '_translateMe', '_utibet', '_volcEngine', '_yandex',
     '_yeekit', '_youdao',
 ]  # 37
+
 
 class TranslatorsServer:
     def __init__(self):
