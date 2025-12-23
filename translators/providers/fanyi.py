@@ -35,7 +35,7 @@ class QQFanyi(Tse):
         lang_map_str = re.compile('C={(.*?)}|languagePair = {(.*?)}', flags=re.S).search(r.text).group()  # C=
         return exejs.evaluate(lang_map_str)
 
-    @Tse.debug_language_map
+    @Tse.debug_language_map_async
     async def get_language_map_async(self, ss: AsyncSessionType, language_url: str, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
         r = await ss.get(language_url, headers=self.host_headers, timeout=timeout)
@@ -118,9 +118,9 @@ class QQFanyi(Tse):
         return data if is_detail_result else ''.join(
             item['targetText'] for item in data['translate']['records'])  # auto whitespace
 
-    @Tse.uncertified  # todo: need ticket and randstr of TCaptcha.
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.uncertified_async  # todo: need ticket and randstr of TCaptcha.
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """

@@ -97,8 +97,8 @@ class TranslateCom(Tse):
         self.query_count += 1
         return data if is_detail_result else data['translated_text']  # translation_source is microsoft, wtf!
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """

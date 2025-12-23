@@ -49,7 +49,7 @@ class YoudaoV1(Tse):
         lang_list = sorted([it['code'] for it in data['data']['value']['textTranslate']['specify']])
         return {}.fromkeys(lang_list, lang_list)
 
-    @Tse.debug_language_map
+    @Tse.debug_language_map_async
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
         data = (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
@@ -165,8 +165,8 @@ class YoudaoV1(Tse):
         return data if is_detail_result else '\n'.join(
             [' '.join([it['tgt'] for it in item]) for item in data['translateResult']])
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
@@ -265,7 +265,7 @@ class YoudaoV2(Tse):
         lang_list = sorted([it['code'] for it in data['data']['value']['textTranslate']['specify']])
         return {}.fromkeys(lang_list, lang_list)
 
-    @Tse.debug_language_map
+    @Tse.debug_language_map_async
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
         data = (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
@@ -388,9 +388,9 @@ class YoudaoV2(Tse):
         self.query_count += 1
         return data if is_detail_result else str(data)  # TODO
 
-    @Tse.uncertified
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.uncertified_async
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
@@ -561,8 +561,8 @@ class YoudaoV3(Tse):
         self.query_count += 1
         return data if is_detail_result else data['translation'][0]
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """

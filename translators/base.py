@@ -1,4 +1,3 @@
-import asyncio
 import sys
 import time
 import random
@@ -55,8 +54,12 @@ class Tse:
                 return result
             return func(*args, **kwargs)
 
+        return _wrapper
+
+    @staticmethod
+    def time_stat_async(func):
         @functools.wraps(func)
-        async def _async_wrapper(*args, **kwargs):
+        async def _wrapper(*args, **kwargs):
             if_show_time_stat = kwargs.get('if_show_time_stat', False)
             show_time_stat_precision = kwargs.get('show_time_stat_precision', 2)
             sleep_seconds = kwargs.get('sleep_seconds', 0)
@@ -71,7 +74,7 @@ class Tse:
                 return result
             return await func(*args, **kwargs)
 
-        return _async_wrapper if asyncio.iscoroutinefunction(func) else _wrapper
+        return _wrapper
 
     @staticmethod
     def get_timestamp() -> int:
@@ -204,8 +207,24 @@ class Tse:
                 return make_temp_language_map(kwargs.get('from_language'), kwargs.get('to_language'),
                                               kwargs.get('default_from_language'))
 
+        return _wrapper
+
+    @staticmethod
+    def debug_language_map_async(func):
+        def make_temp_language_map(from_language: str, to_language: str, default_from_language: str) -> dict:
+            if from_language == to_language or to_language == 'auto':
+                raise TranslatorError
+
+            temp_language_map = {from_language: to_language}
+            if from_language != 'auto':
+                temp_language_map.update({to_language: from_language})
+            elif default_from_language != to_language:
+                temp_language_map.update({default_from_language: to_language, to_language: default_from_language})
+
+            return temp_language_map
+
         @functools.wraps(func)
-        async def _async_wrapper(*args, **kwargs):
+        async def _wrapper(*args, **kwargs):
             try:
                 language_map = await func(*args, **kwargs)
                 if not language_map:
@@ -216,7 +235,7 @@ class Tse:
                     warnings.warn(f'GetLanguageMapError: {str(e)}.\nThe function make_temp_language_map() works.')
                 return make_temp_language_map(kwargs.get('from_language'), kwargs.get('to_language'),
                                               kwargs.get('default_from_language'))
-        return _async_wrapper if asyncio.iscoroutinefunction(func) else _wrapper
+        return _wrapper
 
     @staticmethod
     def check_input_limit(query_text: str, input_limit: int) -> None:
@@ -262,8 +281,32 @@ class Tse:
                 return func(*tuple(new_args), **kwargs)
             return func(*args, **{**kwargs, **{'query_text': query_text}})
 
+        return _wrapper
+
+    @staticmethod
+    def check_query_async(func):
+        def check_query_text(query_text: str, if_ignore_empty_query: bool, if_ignore_limit_of_length: bool,
+                             limit_of_length: int, bias_of_length: int = 10) -> str:
+            if not isinstance(query_text, str):
+                raise TranslatorError
+
+            query_text = query_text.strip()
+            qt_length = len(query_text)
+            limit_of_length -= bias_of_length  # #154
+
+            if qt_length == 0 and not if_ignore_empty_query:
+                raise TranslatorError("The `query_text` can't be empty!")
+            if qt_length >= limit_of_length and not if_ignore_limit_of_length:
+                raise TranslatorError('The length of `query_text` exceeds the limit.')
+            else:
+                if qt_length >= limit_of_length:
+                    warnings.warn(f'The length of `query_text` is {qt_length}, above {limit_of_length}.')
+                    return query_text[:limit_of_length]
+            return query_text
+
+
         @functools.wraps(func)
-        async def _async_wrapper(*args, **kwargs):
+        async def _wrapper(*args, **kwargs):
             if_ignore_empty_query = kwargs.get('if_ignore_empty_query', True)
             if_ignore_limit_of_length = kwargs.get('if_ignore_limit_of_length', False)
             limit_of_length = kwargs.get('limit_of_length', 20000)
@@ -280,7 +323,7 @@ class Tse:
                 return await func(*tuple(new_args), **kwargs)
             return await func(*args, **{**kwargs, **{'query_text': query_text}})
 
-        return _async_wrapper if asyncio.iscoroutinefunction(func) else _wrapper
+        return _wrapper
 
     @staticmethod
     def uncertified(func):
@@ -294,8 +337,12 @@ class Tse:
                 raise_tips2 = f'Please read for details: Status of Translator on this webpage({raise_tips2_url}).'
                 raise TranslatorError(f'{raise_tips1} {raise_tips2}')
 
+        return _wrapper
+
+    @staticmethod
+    def uncertified_async(func):
         @functools.wraps(func)
-        async def _async_wrapper(*args, **kwargs):
+        async def _wrapper(*args, **kwargs):
             try:
                 return await func(*args, **kwargs)
             except:
@@ -304,7 +351,7 @@ class Tse:
                 raise_tips2 = f'Please read for details: Status of Translator on this webpage({raise_tips2_url}).'
                 raise TranslatorError(f'{raise_tips1} {raise_tips2}')
 
-        return _async_wrapper if asyncio.iscoroutinefunction(func) else _wrapper
+        return _wrapper
 
     # @staticmethod
     # def certified(func):

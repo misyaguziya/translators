@@ -40,7 +40,7 @@ class BaiduV1(Tse):
         lang_list = sorted(list(set(lang_list)))
         return {}.fromkeys(lang_list, lang_list)
 
-    @Tse.debug_language_map
+    @Tse.debug_language_map_async
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
         js_html = (await ss.get(lang_url, headers=headers, timeout=timeout)).text
@@ -121,9 +121,9 @@ class BaiduV1(Tse):
         self.query_count += 1
         return data if is_detail_result else '\n'.join([item['dst'] for item in data['data']])
 
-    @Tse.uncertified
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.uncertified_async
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
@@ -228,7 +228,7 @@ class BaiduV2(Tse):
         lang_list = sorted(list(set(lang_list)))
         return {}.fromkeys(lang_list, lang_list)
 
-    @Tse.debug_language_map
+    @Tse.debug_language_map_async
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
         js_html = (await ss.get(lang_url, headers=headers, timeout=timeout)).text
@@ -367,9 +367,9 @@ class BaiduV2(Tse):
         self.query_count += 1
         return data if is_detail_result else '\n'.join([x['dst'] for x in data['trans_result']['data']])
 
-    @Tse.uncertified
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.uncertified_async
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """

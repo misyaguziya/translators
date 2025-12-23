@@ -158,8 +158,8 @@ class Deepl(Tse):
         return data if is_detail_result else ' '.join(
             item['beams'][0]['sentences'][0]["text"] for item in data['result']['translations'])  # either ' ' or '\n'.
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """

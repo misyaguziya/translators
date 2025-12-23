@@ -106,9 +106,9 @@ class TranslateMe(Tse):
         self.query_count += 1
         return {'data': data_list} if is_detail_result else '\n'.join([item['to'] for item in data_list])
 
-    @Tse.uncertified
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.uncertified_async
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
@@ -241,8 +241,8 @@ class TranslateMe(Tse):
         next_query_text = self._translateMe_api(query_text, from_language, self.output_en, **tmp_kwargs)
         return self._translateMe_api(next_query_text, self.output_en, to_language, **kwargs)
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """

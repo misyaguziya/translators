@@ -168,8 +168,8 @@ class SysTran(Tse):
                                                                 item['output']['documents'][0]['trans_units'][0][
                                                                     'sentences']) for item in data['outputs'])
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """

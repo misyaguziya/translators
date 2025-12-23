@@ -94,8 +94,8 @@ class Yeekit(Tse):
         return data if is_detail_result else '\n'.join(
             ' '.join(p) for p in json.loads(data[0])['translation'][0]['translated'][0]['translation list'])
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """

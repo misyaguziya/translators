@@ -40,7 +40,7 @@ class Mirai(Tse):
         lang_pairs = re.compile('"/trial/(\\w{2})/(\\w{2})"').findall(js_html)
         return {f_lang: [v for k, v in lang_pairs if k == f_lang] for f_lang, t_lang in lang_pairs}
 
-    @Tse.debug_language_map
+    @Tse.debug_language_map_async
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
         js_html = (await ss.get(lang_url, headers=headers, timeout=timeout)).text
@@ -138,8 +138,8 @@ class Mirai(Tse):
         self.query_count += 1
         return data if is_detail_result else data['ouputs'][0]['output'][0]['translation']
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'ja',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """

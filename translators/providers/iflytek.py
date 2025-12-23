@@ -47,7 +47,7 @@ class IflytekV1(Tse):
         lang_list = sorted(list(exejs.evaluate(lang_str).keys()))
         return {}.fromkeys(lang_list, lang_list)
 
-    @Tse.debug_language_map
+    @Tse.debug_language_map_async
     async def get_language_map_async(self, host_html: str, ss: AsyncSessionType, headers: dict,
                                      timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
@@ -129,8 +129,8 @@ class IflytekV1(Tse):
         self.query_count += 1
         return data if is_detail_result else json.loads(data['data'])['trans_result']['dst']
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
@@ -228,7 +228,7 @@ class IflytekV2(Tse):
         lang_list = sorted(list(set(lang_list)))
         return {}.fromkeys(lang_list, lang_list)
 
-    @Tse.debug_language_map
+    @Tse.debug_language_map_async
     async def get_language_map_async(self, host_html: str, ss: AsyncSessionType, headers: dict,
                                      timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
@@ -309,8 +309,8 @@ class IflytekV2(Tse):
         self.query_count += 1
         return data if is_detail_result else json.loads(data['data'])['trans_result']['dst']
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
@@ -471,8 +471,8 @@ class Iflyrec(Tse):
         self.query_count += 1
         return data if is_detail_result else '\n'.join([item['translateResult'] for item in data['biz']])
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """

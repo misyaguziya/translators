@@ -177,8 +177,8 @@ class YandexV1(Tse):
         self.query_count += 1
         return data if is_detail_result else '\n'.join(data['text'])
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
@@ -314,7 +314,7 @@ class YandexV2(Tse):
             lang_map.setdefault(k, []).append(v)
         return lang_map
 
-    @Tse.debug_language_map
+    @Tse.debug_language_map_async
     async def get_language_map_async(self, ss: AsyncSessionType, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
         lang_map = {}
@@ -385,8 +385,8 @@ class YandexV2(Tse):
         self.query_count += 1
         return data if is_detail_result else data['text'][0]
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """

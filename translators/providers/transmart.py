@@ -36,7 +36,7 @@ class QQTranSmart(Tse):
         lang_list = sorted(list(set([lang for langs in lang_list for lang in langs])))
         return {}.fromkeys(lang_list, lang_list)
 
-    @Tse.debug_language_map
+    @Tse.debug_language_map_async
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
         js_html = (await ss.get(lang_url, headers=self.host_headers, timeout=timeout)).text
@@ -143,8 +143,8 @@ class QQTranSmart(Tse):
         self.query_count += 1
         return data if is_detail_result else ''.join(data['auto_translation'])
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """

@@ -38,7 +38,7 @@ class MyMemory(Tse):
         lang_list = sorted(list(set(self.myMemory_language_list + self.mateCat_language_list)))
         return {}.fromkeys(lang_list, lang_list)
 
-    @Tse.debug_language_map
+    @Tse.debug_language_map_async
     async def get_language_map_async(self, myMemory_host_html: str, matecat_lang_url: str, ss: AsyncSessionType,
                                      headers: dict,
                                      timeout: Optional[float], **kwargs: LangMapKwargsType) -> dict:
@@ -121,8 +121,8 @@ class MyMemory(Tse):
         self.query_count += 1
         return data if is_detail_result else data['responseData']['translatedText']
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """

@@ -38,7 +38,7 @@ class LingvanexV1(Tse):
         lang_list = sorted(set([item['full_code'] for item in detail_lang_map['result']]))
         return {}.fromkeys(lang_list, lang_list)
 
-    @Tse.debug_language_map
+    @Tse.debug_language_map_async
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
         params = {'all': 'true', 'code': 'en_GB', 'platform': 'dp', '_': self.get_timestamp()}
@@ -151,8 +151,8 @@ class LingvanexV1(Tse):
         self.query_count += 1
         return data if is_detail_result else data['result']
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
@@ -264,7 +264,7 @@ class LingvanexV2(Tse):
         lang_list = sorted(set([item['full_code'] for item in self.detail_language_map['result']]))
         return {}.fromkeys(lang_list, lang_list)
 
-    @Tse.debug_language_map
+    @Tse.debug_language_map_async
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
         self.detail_language_map = (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
@@ -344,8 +344,8 @@ class LingvanexV2(Tse):
         self.query_count += 1
         return data if is_detail_result else data['result']
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """

@@ -45,7 +45,7 @@ class Sogou(Tse):
         lang_list = [item['lang'] for item in lang_item_list if item['play'] == 1]
         return {}.fromkeys(lang_list, lang_list)
 
-    @Tse.debug_language_map
+    @Tse.debug_language_map_async
     async def get_language_map_async(self, host_html: str, lang_old_url: str, ss: AsyncSessionType,
                                      timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
@@ -137,8 +137,8 @@ class Sogou(Tse):
         self.query_count += 1
         return data if is_detail_result else data['data']['translate']['dit']
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """

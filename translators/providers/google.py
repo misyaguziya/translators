@@ -185,8 +185,8 @@ class GoogleV1(Tse):
         self.query_count += 1
         return data if is_detail_result else ''.join([item[0] for item in data[0] if isinstance(item[0], str)])
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
@@ -400,8 +400,8 @@ class GoogleV2(Tse):
         return {'data': data} if is_detail_result else ' '.join(
             [x[0] for x in (data[1][0][0][5] or data[1][0]) if x[0]])
 
-    @Tse.time_stat
-    @Tse.check_query
+    @Tse.time_stat_async
+    @Tse.check_query_async
     async def trans_api_async(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
                               **kwargs: ApiKwargsType) -> Union[str, dict]:
         """
