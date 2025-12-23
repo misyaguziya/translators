@@ -33,6 +33,13 @@ class Itranslate(Tse):
         lang_list = sorted(list(set([dd['dialect'] for dd in lang_origin_list])))
         return {}.fromkeys(lang_list, lang_list)
 
+    @Tse.debug_language_map
+    async def get_language_map_async(self, lang_html: str, **kwargs: LangMapKwargsType) -> dict:
+        lang_str = re.compile('\\[{dialect:"auto",(.*?)}]').search(lang_html).group()
+        lang_origin_list = await exejs.evaluate_async(lang_str)
+        lang_list = sorted(list(set([dd['dialect'] for dd in lang_origin_list])))
+        return {}.fromkeys(lang_list, lang_list)
+
     def get_apikey(self, lang_html: str) -> str:
         return re.compile('"API-KEY":"(.*?)"').findall(lang_html)[0]
 
@@ -158,7 +165,7 @@ class Itranslate(Tse):
                 await self.async_session.get(self.language_url, headers=self.host_headers, timeout=timeout)).text
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = self.get_language_map(lang_html, **debug_lang_kwargs)
+            self.language_map = await self.get_language_map_async(lang_html, **debug_lang_kwargs)
 
             self.api_key = self.get_apikey(lang_html)
             self.api_headers.update({'API-KEY': self.api_key})

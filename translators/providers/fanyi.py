@@ -41,7 +41,7 @@ class QQFanyi(Tse):
         r = await ss.get(language_url, headers=self.host_headers, timeout=timeout)
         r.raise_for_status()
         lang_map_str = re.compile('C={(.*?)}|languagePair = {(.*?)}', flags=re.S).search(r.text).group()  # C=
-        return exejs.evaluate(lang_map_str)
+        return await exejs.evaluate_async(lang_map_str)
 
     def get_qt(self, ss: SessionType, timeout: Optional[float]) -> dict:
         return ss.post(self.get_qt_url, headers=self.qt_headers, json=self.qtv_qtk, timeout=timeout).json()

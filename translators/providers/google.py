@@ -307,6 +307,11 @@ class GoogleV2(Tse):
         data = exejs.evaluate(data_str)
         return {'bl': data['cfb2h'], 'f.sid': data['FdrFJe']}
 
+    async def get_info_async(self, host_html: str) -> dict:
+        data_str = re.compile(r'window.WIZ_global_data = (.*?);</script>').findall(host_html)[0]
+        data = await exejs.evaluate_async(data_str)
+        return {'bl': data['cfb2h'], 'f.sid': data['FdrFJe']}
+
     def get_consent_data(self, consent_html: str) -> dict:  # 142 merged but not verify.
         et = lxml_etree.HTML(consent_html)
         form_element = et.xpath('.//form[1]')

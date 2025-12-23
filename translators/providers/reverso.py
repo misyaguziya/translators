@@ -34,9 +34,21 @@ class Reverso(Tse):
         lang_list = sorted(list(lang_dict.values()))
         return {}.fromkeys(lang_list, lang_list)
 
+    @Tse.debug_language_map
+    async def get_language_map_async(self, lang_html: str, **kwargs: LangMapKwargsType) -> dict:
+        lang_dict_str = re.compile('={eng:(.*?)}').search(lang_html).group()[1:]
+        lang_dict = await exejs.evaluate_async(lang_dict_str)
+        lang_list = sorted(list(lang_dict.values()))
+        return {}.fromkeys(lang_list, lang_list)
+
     def decrypt_lang_map(self, lang_html: str) -> dict:
         lang_dict_str = re.compile('={eng:(.*?)}').search(lang_html).group()[1:]
         lang_dict = exejs.evaluate(lang_dict_str)
+        return {k: v for v, k in lang_dict.items()}
+
+    async def decrypt_lang_map_async(self, lang_html: str) -> dict:
+        lang_dict_str = re.compile('={eng:(.*?)}').search(lang_html).group()[1:]
+        lang_dict = await exejs.evaluate_async(lang_dict_str)
         return {k: v for v, k in lang_dict.items()}
 
     @Tse.time_stat
@@ -163,10 +175,10 @@ class Reverso(Tse):
             # self.language_url = re.compile(self.language_pattern).search(host_html).group()
             lang_html = (
                 await self.async_session.get(self.language_url, headers=self.host_headers, timeout=timeout)).text
-            self.decrypt_language_map = self.decrypt_lang_map(lang_html)
+            self.decrypt_language_map = await self.decrypt_lang_map_async(lang_html)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = self.get_language_map(lang_html, **debug_lang_kwargs)
+            self.language_map = await self.get_language_map_async(lang_html, **debug_lang_kwargs)
             self.api_headers.update({'X-Reverso-Origin': 'translation.web'})
 
         if from_language == 'auto':

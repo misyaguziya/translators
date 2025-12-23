@@ -1,6 +1,6 @@
 lxml
 tqdm
-exejs
+exejs @ git+https://github.com/3mora2/exejs
 httpx
 pathos
 requests

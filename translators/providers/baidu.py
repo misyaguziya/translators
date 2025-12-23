@@ -259,7 +259,7 @@ class BaiduV2(Tse):
         end_label = 'var i=null;t.exports=e});'
         sign_js = sign_html[sign_html.find(begin_label) + len(begin_label):sign_html.find(end_label)]
         sign_js = sign_js.replace('function e(r)', 'function e(r,i)')
-        return exejs.compile(sign_js).call('e', query_text, gtk)
+        return await exejs.compile(sign_js).call_async('e', query_text, gtk)
 
     def get_tk(self, host_html: str) -> str:
         tk_list = re.compile("""token: '(.*?)',|token: "(.*?)",""").findall(host_html)[0]

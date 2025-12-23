@@ -41,7 +41,7 @@ class QQTranSmart(Tse):
                                      **kwargs: LangMapKwargsType) -> dict:
         js_html = (await ss.get(lang_url, headers=self.host_headers, timeout=timeout)).text
         lang_str_list = re.compile('lngs:\\[(.*?)]').findall(js_html)
-        lang_list = [exejs.evaluate(f'[{x}]') for x in lang_str_list]
+        lang_list = [await exejs.evaluate_async(f'[{x}]') for x in lang_str_list]
         lang_list = sorted(list(set([lang for langs in lang_list for lang in langs])))
         return {}.fromkeys(lang_list, lang_list)
 

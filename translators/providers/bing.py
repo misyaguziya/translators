@@ -49,6 +49,11 @@ class Bing(Tse):
         result = exejs.evaluate(result_str)
         return {'key': result[0], 'token': result[1]}
 
+    async def get_tk_async(self, host_html: str) -> dict:
+        result_str = re.compile('var params_AbusePreventionHelper = (.*?);').findall(host_html)[0]
+        result = await exejs.evaluate_async(result_str)
+        return {'key': result[0], 'token': result[1]}
+
     @Tse.time_stat
     @Tse.check_query
     def bing_api(self, query_text: str, from_language: str = 'auto', to_language: str = 'en',
@@ -180,7 +185,7 @@ class Bing(Tse):
             self.begin_time = time.time()
             self.async_session = Tse.get_async_client_session(http_client, proxies)
             host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
-            self.tk = self.get_tk(host_html)
+            self.tk = await self.get_tk_async(host_html)
             self.ig_iid = self.get_ig_iid(host_html)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)

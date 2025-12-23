@@ -61,7 +61,7 @@ class IflytekV1(Tse):
 
         js_html = r.text
         lang_str = re.compile('languageList:\\(e={(.*?)}').search(js_html).group()[16:]
-        lang_list = sorted(list(exejs.evaluate(lang_str).keys()))
+        lang_list = sorted(list((await exejs.evaluate_async(lang_str)).keys()))
         return {}.fromkeys(lang_list, lang_list)
 
     @Tse.uncertified
