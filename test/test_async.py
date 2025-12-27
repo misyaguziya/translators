@@ -20,16 +20,17 @@ async def test():
         except Exception as e:
             traceback.print_exc()
 
-asyncio.run(test())
+# asyncio.run(test())
 
 async def test2(tans):
     # text = serv._test_translate(tans)
-    async_text = await server_async.async_tss._test_translate(tans)
+    # async_text = await server_async.async_tss._test_translate(tans)
+    async_text = await server_async.translate_text("hellow",tans, to_language="ar", from_language="en")
     # print(text)
     print(async_text)
 
 
-# asyncio.run(test2("yeekit"))
+asyncio.run(test2("lingvanex"))
 # baidu, deepl, iciba, judic, reverso
 # deepl work fine with aiohttp, not sync
 

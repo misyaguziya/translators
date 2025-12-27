@@ -2,7 +2,7 @@ import asyncio
 import re
 import time
 import urllib.parse
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 
 from translators.base import Tse, LangMapKwargsType, ApiKwargsType, AsyncSessionType, SessionType
 
@@ -38,6 +38,24 @@ class Apertium(Tse):
         js_html = await (await ss.get(lang_url, headers=headers, timeout=timeout)).text()
         lang_pairs = re.compile('{sourceLanguage:"(.*?)",targetLanguage:"(.*?)"}').findall(js_html)
         return {f_lang: [v for k, v in lang_pairs if k == f_lang] for f_lang, t_lang in lang_pairs}
+
+    def check_language(self,
+                       from_language: str,
+                       to_language: str,
+                       language_map: dict,
+                       output_auto: str = 'auto',
+                       output_zh: str = 'zh',
+                       output_en_translator: Optional[str] = None,
+                       output_en: str = 'en-US',
+                       if_check_lang_reverse: bool = True,
+                       ) -> Tuple[str, str]:
+        # TODO: Add All Langs
+        _lang = {"ar":"ara", "en":"eng"}
+        from_language = _lang.get(from_language, from_language)
+        to_language = _lang.get(to_language, to_language)
+        return super().check_language(
+            from_language, to_language, self.language_map,
+            output_auto, output_zh, output_en_translator, output_en, if_check_lang_reverse)
 
     @Tse.time_stat
     @Tse.check_query
@@ -158,7 +176,7 @@ class Apertium(Tse):
         if from_language == 'auto':
             payload = urllib.parse.urlencode({'q': query_text})
             langs = await (await self.async_session.post(self.detect_lang_url, data=payload, headers=self.api_headers,
-                                                   timeout=timeout)).json()
+                                                         timeout=timeout)).json()
             from_language = sorted(langs, key=lambda k: langs[k], reverse=True)[0]
         from_language, to_language = self.check_language(from_language, to_language, self.language_map,
                                                          output_en_translator='apertium', output_en=self.output_en)

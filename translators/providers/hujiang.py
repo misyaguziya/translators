@@ -1,7 +1,7 @@
 import time
 import urllib.parse
 import uuid
-from typing import Union
+from typing import Union, Optional, Tuple
 
 import lxml.etree as lxml_etree
 
@@ -29,6 +29,24 @@ class Hujiang(Tse):
         et = lxml_etree.HTML(host_html)
         lang_list = sorted(list(set(et.xpath('//*/select[@class="translate-fromLang"]/option/@value'))))
         return {}.fromkeys(lang_list, lang_list)
+
+    def check_language(self,
+                       from_language: str,
+                       to_language: str,
+                       language_map: dict,
+                       output_auto: str = 'auto',
+                       output_zh: str = 'zh',
+                       output_en_translator: Optional[str] = None,
+                       output_en: str = 'en-US',
+                       if_check_lang_reverse: bool = True,
+                       ) -> Tuple[str, str]:
+        _lang = {"ar":'ar-EG'}
+        from_language = _lang.get(from_language, from_language)
+        to_language = _lang.get(to_language, to_language)
+        return super().check_language(
+            from_language, to_language, self.language_map,
+            output_auto, output_zh, output_en_translator, output_en, if_check_lang_reverse)
+
 
     @Tse.time_stat
     @Tse.check_query

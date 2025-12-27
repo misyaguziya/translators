@@ -2,7 +2,7 @@ import asyncio
 import re
 import time
 import urllib.parse
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 
 from translators.base import Tse, LangMapKwargsType, TranslatorError, ApiKwargsType, AsyncSessionType, SessionType
 
@@ -269,6 +269,25 @@ class LingvanexV2(Tse):
         self.detail_language_map = await (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
         lang_list = sorted(set([item['full_code'] for item in self.detail_language_map['result']]))
         return {}.fromkeys(lang_list, lang_list)
+
+
+    def check_language(self,
+                       from_language: str,
+                       to_language: str,
+                       language_map: dict,
+                       output_auto: str = 'auto',
+                       output_zh: str = 'zh',
+                       output_en_translator: Optional[str] = None,
+                       output_en: str = 'en-US',
+                       if_check_lang_reverse: bool = True,
+                       ) -> Tuple[str, str]:
+        _lang = {"ar":'ar_EG'}
+        from_language = _lang.get(from_language, from_language)
+        to_language = _lang.get(to_language, to_language)
+        return super().check_language(
+            from_language, to_language, self.language_map,
+            output_auto, output_zh, output_en_translator, output_en, if_check_lang_reverse)
+
 
     def get_auth(self, host_html: str) -> str:
         return re.compile('const API_BEARER_TOKEN = "(.*?)"').findall(host_html)[0]
