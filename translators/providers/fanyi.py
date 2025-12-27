@@ -40,14 +40,14 @@ class QQFanyi(Tse):
                                      **kwargs: LangMapKwargsType) -> dict:
         r = await ss.get(language_url, headers=self.host_headers, timeout=timeout)
         r.raise_for_status()
-        lang_map_str = re.compile('C={(.*?)}|languagePair = {(.*?)}', flags=re.S).search(r.text).group()  # C=
+        lang_map_str = re.compile('C={(.*?)}|languagePair = {(.*?)}', flags=re.S).search(await r.text()).group()  # C=
         return await exejs.evaluate_async(lang_map_str)
 
     def get_qt(self, ss: SessionType, timeout: Optional[float]) -> dict:
         return ss.post(self.get_qt_url, headers=self.qt_headers, json=self.qtv_qtk, timeout=timeout).json()
 
     async def get_qt_async(self, ss: AsyncSessionType, timeout: Optional[float]) -> dict:
-        return (await ss.post(self.get_qt_url, headers=self.qt_headers, json=self.qtv_qtk, timeout=timeout)).json()
+        return await (await ss.post(self.get_qt_url, headers=self.qt_headers, json=self.qtv_qtk, timeout=timeout)).json()
 
     @Tse.uncertified  # todo: need ticket and randstr of TCaptcha.
     @Tse.time_stat
@@ -148,7 +148,6 @@ class QQFanyi(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -160,8 +159,8 @@ class QQFanyi(Tse):
         if not (
                 self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.qtv_qtk):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
-            _ = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(proxies)
+            _ = await (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
             self.qtv_qtk = await self.get_qt_async(self.async_session, timeout)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
@@ -183,7 +182,7 @@ class QQFanyi(Tse):
         }
         r = await self.async_session.post(self.api_url, headers=self.api_headers, data=payload, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else ''.join(item['targetText'] for item in data['translate']['records'])

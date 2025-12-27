@@ -9,14 +9,14 @@ import httpx
 import requests
 import niquests
 import cloudscraper
-
+import aiohttp
 
 LangMapKwargsType = Union[str, bool]
 ApiKwargsType = Union[str, int, float, bool, dict]
 SessionType = Union[requests.sessions.Session, niquests.sessions.Session, httpx.Client]
 ResponseType = Union[requests.models.Response, niquests.models.Response, httpx.Response]
-AsyncSessionType = Union[niquests.async_session.AsyncSession, httpx.AsyncClient]
-AsyncResponseType = Union[niquests.models.AsyncResponse, httpx.Response]
+AsyncSessionType = aiohttp.ClientSession
+AsyncResponseType = aiohttp.ClientResponse
 
 
 class TranslatorError(Exception):
@@ -24,6 +24,8 @@ class TranslatorError(Exception):
 
 
 class Tse:
+    working = True
+
     def __init__(self):
         self.author = 'UlionTse'
         self.all_begin_time = time.time()
@@ -386,20 +388,10 @@ class Tse:
         return session
 
     @staticmethod
-    def get_async_client_session(http_client: str = 'niquests', proxies: Optional[dict] = None) -> AsyncSessionType:
-        if http_client not in ('niquests', 'httpx'):
-            raise TranslatorError
-
+    def get_async_client_session(proxies: Optional[dict] = None) -> AsyncSessionType:
         if proxies is None:
             proxies = {}
-
-        if http_client == 'niquests':
-            session = niquests.AsyncSession(happy_eyeballs=True)
-            session.proxies = proxies
-        elif http_client == 'httpx':
-            proxy_url = proxies.get('http') or proxies.get('https')
-            session = httpx.AsyncClient(follow_redirects=True, proxy=proxy_url)
-        else:
-            raise TranslatorError
+        # TODO: Add proxies
+        session = aiohttp.ClientSession()
         return session
 

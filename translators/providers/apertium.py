@@ -35,7 +35,7 @@ class Apertium(Tse):
     @Tse.debug_language_map_async
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
-        js_html = (await ss.get(lang_url, headers=headers, timeout=timeout)).text
+        js_html = await (await ss.get(lang_url, headers=headers, timeout=timeout)).text()
         lang_pairs = re.compile('{sourceLanguage:"(.*?)",targetLanguage:"(.*?)"}').findall(js_html)
         return {f_lang: [v for k, v in lang_pairs if k == f_lang] for f_lang, t_lang in lang_pairs}
 
@@ -137,7 +137,6 @@ class Apertium(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -148,7 +147,7 @@ class Apertium(Tse):
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            self.async_session = Tse.get_async_client_session(proxies)
             _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
@@ -158,7 +157,7 @@ class Apertium(Tse):
 
         if from_language == 'auto':
             payload = urllib.parse.urlencode({'q': query_text})
-            langs = (await self.async_session.post(self.detect_lang_url, data=payload, headers=self.api_headers,
+            langs = await (await self.async_session.post(self.detect_lang_url, data=payload, headers=self.api_headers,
                                                    timeout=timeout)).json()
             from_language = sorted(langs, key=lambda k: langs[k], reverse=True)[0]
         from_language, to_language = self.check_language(from_language, to_language, self.language_map,
@@ -173,7 +172,7 @@ class Apertium(Tse):
         payload = urllib.parse.urlencode(payload)
         r = await self.async_session.post(self.api_url, data=payload, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['responseData']['translatedText']

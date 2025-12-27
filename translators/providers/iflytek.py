@@ -59,7 +59,7 @@ class IflytekV1(Tse):
         except:
             r = await ss.get(self.language_old_url, headers=headers, timeout=timeout)
 
-        js_html = r.text
+        js_html = await r.text()
         lang_str = re.compile('languageList:\\(e={(.*?)}').search(js_html).group()[16:]
         lang_list = sorted(list((await exejs.evaluate_async(lang_str)).keys()))
         return {}.fromkeys(lang_list, lang_list)
@@ -158,7 +158,6 @@ class IflytekV1(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -169,8 +168,8 @@ class IflytekV1(Tse):
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(proxies)
+            host_html = await (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
             _ = await self.async_session.get(self.cookies_url, headers=self.host_headers, timeout=timeout)
             _ = await self.async_session.get(self.info_url, headers=self.host_headers, timeout=timeout)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
@@ -189,7 +188,7 @@ class IflytekV1(Tse):
         payload = {'from': from_language, 'to': to_language, 'text': cipher_query_text}
         r = await self.async_session.post(self.api_url, headers=self.api_headers, data=payload, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await  r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else json.loads(data['data'])['trans_result']['dst']
@@ -236,10 +235,10 @@ class IflytekV2(Tse):
 
         et = lxml_etree.HTML(host_html)
         host_js_url = f"""{host_true_url}{et.xpath('//script[@type="module"]/@src')[0]}"""
-        host_js_html = (await ss.get(host_js_url, headers=headers, timeout=timeout)).text
+        host_js_html = await (await ss.get(host_js_url, headers=headers, timeout=timeout)).text()
         self.language_url = f"""{host_true_url}{re.compile(self.language_url_pattern).search(host_js_html).group()}"""
 
-        lang_js_html = (await ss.get(self.language_url, headers=headers, timeout=timeout)).text
+        lang_js_html = await (await ss.get(self.language_url, headers=headers, timeout=timeout)).text()
         lang_list = re.compile('languageCode:"(.*?)",').findall(lang_js_html)
         lang_list = sorted(list(set(lang_list)))
         return {}.fromkeys(lang_list, lang_list)
@@ -349,8 +348,8 @@ class IflytekV2(Tse):
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(proxies)
+            host_html =await (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
             self.language_map = await self.get_language_map_async(host_html, self.async_session, self.host_headers,
@@ -361,15 +360,15 @@ class IflytekV2(Tse):
             params = {'text': query_text}
             detect_r = await self.async_session.get(self.detect_language_url, params=params, headers=self.host_headers,
                                                     timeout=timeout)
-            from_language = detect_r.json()[
-                'data'] if detect_r.status_code == 200 and detect_r.text.strip() != '' else self.output_zh
+            from_language = (await detect_r.json())[
+                'data'] if detect_r.status == 200 and (await detect_r.text()).strip() != '' else self.output_zh
         from_language, to_language = self.check_language(from_language, to_language, self.language_map,
                                                          output_zh=self.output_zh)
 
         payload = {'from': from_language, 'to': to_language, 'text': query_text}
         r = await self.async_session.post(self.api_url, headers=self.api_headers, data=payload, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await  r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else json.loads(data['data'])['trans_result']['dst']
@@ -511,7 +510,7 @@ class Iflyrec(Tse):
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            self.async_session = Tse.get_async_client_session(proxies)
             _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
@@ -523,7 +522,7 @@ class Iflyrec(Tse):
             detect_r = await self.async_session.post(self.detect_lang_url, params=params, json=form,
                                                      headers=self.api_headers,
                                                      timeout=timeout)
-            from_language_id = detect_r.json()['biz'][0]['detectionLanguage']
+            from_language_id =(await detect_r.json())['biz'][0]['detectionLanguage']
             from_language = self.lang_index_mirror[from_language_id]
         from_language, to_language = self.check_language(from_language, to_language, self.language_map,
                                                          output_zh=self.output_zh)
@@ -538,7 +537,7 @@ class Iflyrec(Tse):
         r = await self.async_session.post(self.api_url, params=api_params, json=api_form, headers=self.api_headers,
                                           timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else '\n'.join([item['translateResult'] for item in data['biz']])

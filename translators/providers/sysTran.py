@@ -62,7 +62,7 @@ class SysTran(Tse):
 
     async def get_client_data_async(self, client_url: str, ss: AsyncSessionType, headers: dict,
                                     timeout: Optional[float]) -> dict:
-        js_html = (await ss.get(client_url, headers=headers, timeout=timeout)).text
+        js_html = await (await ss.get(client_url, headers=headers, timeout=timeout)).text()
         search_groups = re.compile('"https://translate.systran.net/oidc",\\w="(.*?)",\\w="(.*?)";').search(
             js_html)  # \\w{1} == \\w
         client_data = {
@@ -199,7 +199,6 @@ class SysTran(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -210,12 +209,12 @@ class SysTran(Tse):
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            self.async_session = Tse.get_async_client_session(proxies)
             _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
             self.client_data = await self.get_client_data_async(self.get_client_url, self.async_session,
                                                                 self.host_headers, timeout)
             payload = urllib.parse.urlencode(self.client_data)
-            self.token_data = (
+            self.token_data = await (
                 await self.async_session.post(self.get_token_url, data=payload, headers=self.api_ajax_headers,
                                               timeout=timeout)).json()
 
@@ -225,7 +224,7 @@ class SysTran(Tse):
             }
             self.api_json_headers.update(header_params)
 
-            d_lang_map = (
+            d_lang_map = await (
                 await self.async_session.get(self.get_lang_url, headers=self.api_json_headers, timeout=timeout)).json()
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
@@ -260,7 +259,7 @@ class SysTran(Tse):
 
         r = await self.async_session.post(self.api_url, json=payload, headers=self.api_json_headers, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data =await  r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else '\n'.join(' '.join(it['alt_transes'][0]['target']['text'] for it in

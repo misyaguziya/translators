@@ -160,7 +160,6 @@ class Papago(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -173,12 +172,12 @@ class Papago(Tse):
                 self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.auth_key):
             self.device_id = str(uuid.uuid4())
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(proxies)
+            host_html = await (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
             url_path = re.compile(self.language_url_pattern).search(host_html).group()
             self.language_url = ''.join([self.host_url, url_path])
-            lang_html = (
-                await self.async_session.get(self.language_url, headers=self.host_headers, timeout=timeout)).text
+            lang_html = await (
+                await self.async_session.get(self.language_url, headers=self.host_headers, timeout=timeout)).text()
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
             self.language_map = self.get_language_map(lang_html, **debug_lang_kwargs)
@@ -195,7 +194,7 @@ class Papago(Tse):
             detect_form = urllib.parse.urlencode({'query': query_text})
             r_detect = await self.async_session.post(self.lang_detect_url, headers=detect_headers, data=detect_form,
                                                      timeout=timeout)
-            from_language = (r_detect.json())['langCode']
+            from_language = (await r_detect.json())['langCode']
 
         trans_time = self.get_timestamp()
         trans_auth = self.get_authorization(self.api_url, self.auth_key, self.device_id, trans_time)
@@ -212,7 +211,7 @@ class Papago(Tse):
         payload = urllib.parse.urlencode(payload)
         r = await self.async_session.post(self.api_url, headers=trans_headers, data=payload, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['translatedText']

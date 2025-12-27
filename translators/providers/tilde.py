@@ -141,7 +141,6 @@ class Tilde(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -152,16 +151,16 @@ class Tilde(Tse):
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            self.async_session = Tse.get_async_client_session(proxies)
             _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
-            self.config_data = (
+            self.config_data = await (
                 await self.async_session.get(self.get_config_url, headers=self.host_headers, timeout=timeout)).json()
             self.api_headers.update({'client-id': self.config_data['mt']['api']['clientId']})  # must lower keyword
 
             sys_url = self.config_data['mt']['api']['systemListUrl']
             params = {'appID': self.config_data['mt']['api']['appID'],
                       'uiLanguageID': self.config_data['mt']['api']['uiLanguageID']}
-            self.sys_data = (await self.async_session.get(sys_url, params=params, headers=self.api_headers,
+            self.sys_data = await (await self.async_session.get(sys_url, params=params, headers=self.api_headers,
                                                           timeout=timeout)).json()  # test
             self.langpair_ids = self.get_langpair_ids(self.sys_data)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
@@ -180,7 +179,7 @@ class Tilde(Tse):
         }
         r = await self.async_session.post(self.api_url, json=payload, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['translation']

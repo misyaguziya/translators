@@ -52,7 +52,7 @@ class YoudaoV1(Tse):
     @Tse.debug_language_map_async
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
-        data = (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
+        data = await(await ss.get(lang_url, headers=headers, timeout=timeout)).json()
         lang_list = sorted([it['code'] for it in data['data']['value']['textTranslate']['specify']])
         return {}.fromkeys(lang_list, lang_list)
 
@@ -77,7 +77,7 @@ class YoudaoV1(Tse):
         except:
             r = await ss.get(self.get_sign_old_url, headers=self.host_headers, timeout=timeout)
             r.raise_for_status()
-        sign = re.compile('md5\\("fanyideskweb" \\+ e \\+ i \\+ "(.*?)"\\)').findall(r.text)
+        sign = re.compile('md5\\("fanyideskweb" \\+ e \\+ i \\+ "(.*?)"\\)').findall(await r.text())
         return sign[0] if sign and sign != [''] else "Ygy_4c=r#e#4EX^NUGUc5"
 
     def get_form(self, query_text: str, from_language: str, to_language: str, sign_key: str) -> dict:
@@ -194,7 +194,6 @@ class YoudaoV1(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -206,8 +205,9 @@ class YoudaoV1(Tse):
         if not (
                 self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.sign_key):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(proxies)
+            host_html = await (
+                await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
             self.sign_key = await self.get_sign_key_async(host_html, self.async_session, timeout)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
@@ -220,7 +220,7 @@ class YoudaoV1(Tse):
         form = self.get_form(query_text, from_language, to_language, self.sign_key)
         r = await self.async_session.post(self.api_url, data=form, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await  r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else '\n'.join(
@@ -268,7 +268,7 @@ class YoudaoV2(Tse):
     @Tse.debug_language_map_async
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
-        data = (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
+        data = await (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
         lang_list = sorted([it['code'] for it in data['data']['value']['textTranslate']['specify']])
         return {}.fromkeys(lang_list, lang_list)
 
@@ -435,19 +435,21 @@ class YoudaoV2(Tse):
         if not (
                 self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.secret_key):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(proxies)
+            host_html = await (
+                await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
             _ = await self.async_session.get(self.login_url, headers=self.host_headers, timeout=timeout)
-            self.professional_field_map = \
-                (await self.async_session.get(self.domain_url, headers=self.host_headers, timeout=timeout)).json()[
-                    'data']
+            self.professional_field_map =  await (await  (
+                await self.async_session.get(self.domain_url, headers=self.host_headers, timeout=timeout)).json())[
+                'data']
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
             self.language_map = await self.get_language_map_async(self.language_url, self.async_session,
                                                                   self.host_headers, timeout, **debug_lang_kwargs)
 
             self.get_js_url = ''.join([self.host_url, '/', re.compile(self.get_js_pattern).search(host_html).group()])
-            js_html = (await self.async_session.get(self.get_js_url, headers=self.host_headers, timeout=timeout)).text
+            js_html = await (
+                await self.async_session.get(self.get_js_url, headers=self.host_headers, timeout=timeout)).text()
 
             self.decode_key = re.compile('decodeKey:"(.*?)",').search(js_html).group(1)
             self.decode_iv = re.compile('decodeIv:"(.*?)",').search(js_html).group(1)
@@ -456,7 +458,7 @@ class YoudaoV2(Tse):
             params = self.get_payload(keyid='webfanyi-key-getter', key=self.default_key, timestamp=self.get_timestamp())
             key_r = await self.async_session.get(self.get_key_url, params=params, headers=self.api_headers,
                                                  timeout=timeout)
-            self.secret_key = key_r.json()['data']['secretKey']
+            self.secret_key = (await key_r.json())['data']['secretKey']
 
         from_language, to_language = self.check_language(from_language, to_language, self.language_map,
                                                          output_zh=self.output_zh)
@@ -473,7 +475,7 @@ class YoudaoV2(Tse):
         payload = urllib.parse.urlencode(payload)
         r = await self.async_session.post(self.api_url, data=payload, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
-        data = self.decrypt(r.text, decrypt_dictionary={})
+        data = self.decrypt(await r.text(), decrypt_dictionary={})
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else str(data)
@@ -601,8 +603,9 @@ class YoudaoV3(Tse):
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(proxies)
+            host_html = await (
+                await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
             self.language_map = self.get_language_map(host_html, **debug_lang_kwargs)
@@ -616,7 +619,7 @@ class YoudaoV3(Tse):
         payload = urllib.parse.urlencode(payload)
         r = await self.async_session.post(self.api_url, data=payload, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['translation'][0]

@@ -153,7 +153,6 @@ class cloudTranslationV1(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -164,10 +163,10 @@ class cloudTranslationV1(Tse):
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            self.async_session = Tse.get_async_client_session(proxies)
             _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
             _ = await self.async_session.get(self.get_cookie_url, headers=self.api_headers, timeout=timeout)
-            d_lang_map = (
+            d_lang_map = await (
                 await self.async_session.get(self.get_lang_url, headers=self.api_headers, timeout=timeout)).json()
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
@@ -179,7 +178,7 @@ class cloudTranslationV1(Tse):
             payload = {'text': query_text}
             r = await self.async_session.post(self.detect_lang_url, json=payload, headers=self.api_headers,
                                               timeout=timeout)
-            from_language = r.json()['data']['language']
+            from_language = (await r.json())['data']['language']
         from_language, to_language = from_language.lower(), to_language.lower()  # must lower
         from_language, to_language = self.check_language(from_language, to_language, self.language_map,
                                                          output_zh=self.output_zh,
@@ -201,7 +200,7 @@ class cloudTranslationV1(Tse):
         }
         r = await self.async_session.post(self.api_url, json=payload, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['data']['translation']
@@ -354,7 +353,6 @@ class cloudTranslationV2(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -365,10 +363,10 @@ class cloudTranslationV2(Tse):
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            self.async_session = Tse.get_async_client_session(proxies)
             _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
             _ = await self.async_session.get(self.get_cookie_url, headers=self.api_headers, timeout=timeout)
-            d_lang_map = (
+            d_lang_map = await (
                 await self.async_session.get(self.get_lang_url, headers=self.api_headers, timeout=timeout)).json()
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
@@ -380,7 +378,7 @@ class cloudTranslationV2(Tse):
             payload = {'text': query_text}
             r = await self.async_session.post(self.detect_lang_url, json=payload, headers=self.api_headers,
                                               timeout=timeout)
-            from_language = r.json()['data']['language']
+            from_language = (await r.json())['data']['language']
         from_language, to_language = from_language.lower(), to_language.lower()  # must lower
         from_language, to_language = self.check_language(from_language, to_language, self.language_map,
                                                          output_zh=self.output_zh,
@@ -403,7 +401,7 @@ class cloudTranslationV2(Tse):
         }
         r = await self.async_session.post(self.api_url, json=payload, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else json.loads(data['data']['data'])['translation']

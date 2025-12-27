@@ -24,12 +24,11 @@ This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
 This is free software, and you are welcome to redistribute it
 under certain conditions; type `show c' for details.
 """
+import asyncio
 import os
 import re
 import sys
 from typing import Optional, Union, Tuple
-
-import pathos.multiprocessing as pathos_multiprocessing
 import tqdm
 
 from translators.base import TranslatorError, ApiKwargsType
@@ -43,24 +42,6 @@ from translators.utils import Region
 
 __all__ = [
     'translate_text', 'translate_html', 'translators_pool',
-
-    'alibaba', 'apertium', 'argos', 'baidu', 'bing',
-    'caiyun', 'cloudTranslation', 'deepl', 'elia', 'google',
-    'hujiang', 'iciba', 'iflytek', 'iflyrec', 'itranslate',
-    'judic', 'languageWire', 'lingvanex', 'mglip', 'mirai',
-    'modernMt', 'myMemory', 'niutrans', 'papago', 'qqFanyi',
-    'qqTranSmart', 'reverso', 'sogou', 'sysTran', 'tilde',
-    'translateCom', 'translateMe', 'utibet', 'volcEngine', 'yandex',
-    'yeekit', 'youdao',
-
-    '_alibaba', '_apertium', '_argos', '_baidu', '_bing',
-    '_caiyun', '_cloudTranslation', '_deepl', '_elia', '_google',
-    '_hujiang', '_iciba', '_iflytek', '_iflyrec', '_itranslate',
-    '_judic', '_languageWire', '_lingvanex', '_mglip', '_mirai',
-    '_modernMt', '_myMemory', '_niutrans', '_papago', '_qqFanyi',
-    '_qqTranSmart', '_reverso', '_sogou', '_sysTran', '_tilde',
-    '_translateCom', '_translateMe', '_utibet', '_volcEngine', '_yandex',
-    '_yeekit', '_youdao',
 ]  # 37
 
 
@@ -68,83 +49,46 @@ class TranslatorsServer:
     def __init__(self):
         self.cpu_cnt = os.cpu_count()
         self._region = Region()
-        self.get_region_of_server = self._region.get_region_of_server
-        self.server_region = self.get_region_of_server(if_print_region=False)
+        # TODO: use async
+        self.get_region_of_server = self._region.get_region_of_server_async
+        self.server_region = self._region.get_region_of_server(if_print_region=False)
         self._alibaba = AlibabaV2()
-        self.alibaba = self._alibaba.alibaba_api
         self._apertium = Apertium()
-        self.apertium = self._apertium.apertium_api
         self._argos = Argos()
-        self.argos = self._argos.argos_api
         self._baidu = BaiduV1()  # V2
-        self.baidu = self._baidu.baidu_api
         self._bing = Bing(server_region=self.server_region)
-        self.bing = self._bing.bing_api
         self._caiyun = Caiyun()
-        self.caiyun = self._caiyun.caiyun_api
         self._cloudTranslation = cloudTranslationV2()
-        self.cloudTranslation = self._cloudTranslation.cloudTranslation_api
         self._deepl = Deepl()
-        self.deepl = self._deepl.deepl_api
         self._elia = Elia()
-        self.elia = self._elia.elia_api
         self._google = GoogleV2(server_region=self.server_region)
-        self.google = self._google.google_api
-        self.async_google = self._google.trans_api_async
         self._hujiang = Hujiang()
-        self.hujiang = self._hujiang.hujiang_api
         self._iciba = Iciba()
-        self.iciba = self._iciba.iciba_api
         self._iflytek = IflytekV2()
-        self.iflytek = self._iflytek.iflytek_api
         self._iflyrec = Iflyrec()
-        self.iflyrec = self._iflyrec.iflyrec_api
         self._itranslate = Itranslate()
-        self.itranslate = self._itranslate.itranslate_api
         self._judic = Judic()
-        self.judic = self._judic.judic_api
         self._languageWire = LanguageWire()
-        self.languageWire = self._languageWire.languageWire_api
         self._lingvanex = LingvanexV2()
-        self.lingvanex = self._lingvanex.lingvanex_api
         self._niutrans = NiutransV2()
-        self.niutrans = self._niutrans.niutrans_api
         self._mglip = Mglip()
-        self.mglip = self._mglip.mglip_api
         self._mirai = Mirai()
-        self.mirai = self._mirai.mirai_api
         self._modernMt = ModernMt()
-        self.modernMt = self._modernMt.modernMt_api
         self._myMemory = MyMemory()
-        self.myMemory = self._myMemory.myMemory_api
         self._papago = Papago()
-        self.papago = self._papago.papago_api
         self._qqFanyi = QQFanyi()
-        self.qqFanyi = self._qqFanyi.qqFanyi_api
         self._qqTranSmart = QQTranSmart()
-        self.qqTranSmart = self._qqTranSmart.qqTranSmart_api
         self._reverso = Reverso()
-        self.reverso = self._reverso.reverso_api
         self._sogou = Sogou()
-        self.sogou = self._sogou.sogou_api
         self._sysTran = SysTran()
-        self.sysTran = self._sysTran.sysTran_api
         self._tilde = Tilde()
-        self.tilde = self._tilde.tilde_api
         self._translateCom = TranslateCom()
-        self.translateCom = self._translateCom.translateCom_api
         self._translateMe = TranslateMe()
-        self.translateMe = self._translateMe.translateMe_api
         self._utibet = Utibet()
-        self.utibet = self._utibet.utibet_api
         self._volcEngine = VolcEngine()
-        self.volcEngine = self._volcEngine.volcEngine_api
         self._yandex = YandexV2()
-        self.yandex = self._yandex.yandex_api
         self._yeekit = Yeekit()
-        self.yeekit = self._yeekit.yeekit_api
         self._youdao = YoudaoV3()
-        self.youdao = self._youdao.youdao_api
         self._translators_dict = {
             'alibaba': self._alibaba, 'apertium': self._apertium, 'argos': self._argos, 'baidu': self._baidu,
             'bing': self._bing,
@@ -162,24 +106,6 @@ class TranslatorsServer:
             'volcEngine': self._volcEngine, 'yandex': self._yandex,
             'yeekit': self._yeekit, 'youdao': self._youdao,
         }
-        self.translators_dict = {
-            'alibaba': self.alibaba, 'apertium': self.apertium, 'argos': self.argos, 'baidu': self.baidu,
-            'bing': self.bing,
-            'caiyun': self.caiyun, 'cloudTranslation': self.cloudTranslation, 'deepl': self.deepl, 'elia': self.elia,
-            'google': self.google,
-            'hujiang': self.hujiang, 'iciba': self.iciba, 'iflytek': self.iflytek, 'iflyrec': self.iflyrec,
-            'itranslate': self.itranslate,
-            'judic': self.judic, 'languageWire': self.languageWire, 'lingvanex': self.lingvanex,
-            'niutrans': self.niutrans, 'mglip': self.mglip,
-            'mirai': self.mirai, 'modernMt': self.modernMt, 'myMemory': self.myMemory, 'papago': self.papago,
-            'qqFanyi': self.qqFanyi,
-            'qqTranSmart': self.qqTranSmart, 'reverso': self.reverso, 'sogou': self.sogou, 'sysTran': self.sysTran,
-            'tilde': self.tilde,
-            'translateCom': self.translateCom, 'translateMe': self.translateMe, 'utibet': self.utibet,
-            'volcEngine': self.volcEngine, 'yandex': self.yandex,
-            'yeekit': self.yeekit, 'youdao': self.youdao,
-        }
-
         self.translators_list = ['alibaba', 'apertium', 'argos', 'baidu', 'bing', 'caiyun', 'cloudTranslation', 'deepl',
                                  'elia', 'google',
                                  'hujiang', 'iciba', 'iflytek', 'iflyrec', 'itranslate', 'judic', 'languageWire',
@@ -188,6 +114,13 @@ class TranslatorsServer:
                                  'reverso', 'sogou', 'sysTran',
                                  'tilde', 'translateCom', 'translateMe', 'utibet', 'volcEngine', 'yandex', 'yeekit',
                                  'youdao']
+        self.translators_dict = {
+            tran: getattr(self, f"_{tran}").trans_api_async
+            for tran in self.translators_list
+        }
+        for key, value in self.translators_dict.items():
+            setattr(self, key, value)
+
         self.translators_pool = list(self.translators_dict.keys())
         self.not_en_langs = {'utibet': 'ti', 'mglip': 'mon'}
         self.not_zh_langs = {'languageWire': 'fr', 'tilde': 'fr', 'elia': 'fr', 'apertium': 'spa', 'judic': 'de'}
@@ -196,14 +129,14 @@ class TranslatorsServer:
         self.success_translators_pool = []
         self.failure_translators_pool = []
 
-    def translate_text(self,
-                       query_text: str,
-                       translator: str = 'alibaba',
-                       from_language: str = 'auto',
-                       to_language: str = 'en',
-                       if_use_preacceleration: bool = False,
-                       **kwargs: ApiKwargsType,
-                       ) -> Union[str, dict]:
+    async def translate_text(self,
+                                   query_text: str,
+                                   translator: str = 'google',
+                                   from_language: str = 'auto',
+                                   to_language: str = 'en',
+                                   if_use_preacceleration: bool = False,
+                                   **kwargs: ApiKwargsType,
+                                   ) -> Union[str, dict]:
         """
         :param query_text: str, must.
         :param translator: str, default 'alibaba'.
@@ -212,7 +145,6 @@ class TranslatorsServer:
         :param if_use_preacceleration: bool, default False.
         :param **kwargs:
                 :param is_detail_result: bool, default False.
-                :param http_client: str, default 'requests' (except reverso). Union['requests', 'niquests', 'httpx', 'cloudscraper']
                 :param professional_field: str, support alibaba(), baidu(), caiyun(), cloudTranslation(), elia(), sysTran(), youdao(), volcEngine() only.
                 :param timeout: Optional[float], default None.
                 :param proxies: Optional[dict], default None.
@@ -237,12 +169,12 @@ class TranslatorsServer:
             raise TranslatorError
 
         if not self.pre_acceleration_label and if_use_preacceleration:
-            _ = self.preaccelerate()
+            _ = await self.preaccelerate()
 
-        return self.translators_dict[translator](query_text=query_text, from_language=from_language,
-                                                 to_language=to_language, **kwargs)
+        return await self.translators_dict[translator](query_text=query_text, from_language=from_language,
+                                                             to_language=to_language, **kwargs)
 
-    def translate_html(self,
+    async def translate_html(self,
                        html_text: str,
                        translator: str = 'alibaba',
                        from_language: str = 'auto',
@@ -261,7 +193,6 @@ class TranslatorsServer:
         :param if_use_preacceleration: bool, default False.
         :param **kwargs:
                 :param is_detail_result: bool, default False, must False.
-                :param http_client: str, default 'requests' (except reverso). Union['requests', 'niquests', 'httpx', 'cloudscraper']
                 :param professional_field: str, support alibaba(), baidu(), caiyun(), cloudTranslation(), elia(), sysTran(), youdao(), volcEngine() only.
                 :param timeout: Optional[float], default None.
                 :param proxies: Optional[dict], default None.
@@ -286,27 +217,43 @@ class TranslatorsServer:
             raise TranslatorError
 
         if not self.pre_acceleration_label and if_use_preacceleration:
-            _ = self.preaccelerate()
+            _ = await self.preaccelerate()
 
-        def _translate_text(sentence: str) -> Tuple[str, str]:
-            return sentence, self.translators_dict[translator](query_text=sentence, from_language=from_language,
-                                                               to_language=to_language, **kwargs)
+
 
         pattern = re.compile('>([\\s\\S]*?)<')  # not perfect
         sentence_list = list(set(pattern.findall(html_text)))
+        if not sentence_list:
+            return html_text
 
         n_jobs = self.cpu_cnt if n_jobs <= 0 else n_jobs
-        with pathos_multiprocessing.ProcessPool(n_jobs) as pool:
-            result_list = pool.map(_translate_text, sentence_list)
+        semaphore = asyncio.Semaphore(n_jobs)
 
-        result_dict = {text: f'>{ts_text}<' for text, ts_text in result_list}
-        _get_result_func = lambda k: result_dict.get(k.group(1), '')
-        return pattern.sub(repl=_get_result_func, string=html_text)
+        async def _translate_text(sentence: str) -> Tuple[str, str]:
+            async with semaphore:
+                translated = await self.translators_dict[translator](
+                    query_text=sentence,
+                    from_language=from_language,
+                    to_language=to_language,
+                    **kwargs
+                )
+                return sentence, translated
 
-    def _test_translate(self, _ts: str, timeout: Optional[float] = None, if_show_time_stat: bool = False) -> str:
+        result_list = await asyncio.gather(
+            *(_translate_text(sentence) for sentence in sentence_list)
+        )
+        result_dict = {src: f'>{dst}<' for src, dst in result_list}
+
+        def _repl(match: re.Match):
+            return result_dict.get(match.group(1), match.group(0))
+
+        return pattern.sub(_repl, html_text)
+
+    async def _test_translate(self, _ts: str, timeout: Optional[float] = None,
+                                    if_show_time_stat: bool = False) -> str:
         from_language = self.not_zh_langs[_ts] if _ts in self.not_zh_langs else 'auto'
-        to_language = self.not_en_langs[_ts] if _ts in self.not_en_langs else 'en'
-        result = self.translators_dict[_ts](
+        to_language = "ar"# self.not_en_langs[_ts] if _ts in self.not_en_langs else 'en'
+        result = await self.translators_dict[_ts](
             query_text=self.example_query_text,
             translator=_ts,
             from_language=from_language,
@@ -317,15 +264,16 @@ class TranslatorsServer:
         )
         return result
 
-    def get_languages(self, translator: str = 'bing'):
+    async def get_languages(self, translator: str = 'bing'):
         language_map = self._translators_dict[translator].language_map
         if language_map:
             return language_map
 
-        _ = self._test_translate(_ts=translator)
+        _ = await self._test_translate(_ts=translator)
         return self._translators_dict[translator].language_map
 
-    def preaccelerate(self, timeout: Optional[float] = None, if_show_time_stat: bool = True, **kwargs: str) -> dict:
+    async def preaccelerate(self, timeout: Optional[float] = None, if_show_time_stat: bool = True,
+                                  **kwargs: str) -> dict:
         if self.pre_acceleration_label > 0:
             raise TranslatorError('Preacceleration can only be performed once.')
 
@@ -339,7 +287,7 @@ class TranslatorsServer:
         for i in tqdm.tqdm(range(len(self.translators_pool)), desc='Preacceleration Process', ncols=80):
             _ts = self.translators_pool[i]
             try:
-                _ = self._test_translate(_ts, timeout, if_show_time_stat)
+                _ = await self._test_translate(_ts, timeout, if_show_time_stat)
                 self.success_translators_pool.append(_ts)
             except:
                 self.failure_translators_pool.append(_ts)
@@ -347,7 +295,7 @@ class TranslatorsServer:
             self.pre_acceleration_label += 1
         return {'success': self.success_translators_pool, 'failure': self.failure_translators_pool}
 
-    def speedtest(self, **kwargs: dict[str, str]) -> None:
+    async def speedtest(self, **kwargs: dict[str, str]) -> None:
         if self.pre_acceleration_label < 1:
             raise TranslatorError('Preacceleration first.')
 
@@ -357,102 +305,26 @@ class TranslatorsServer:
         for i in tqdm.tqdm(range(len(test_translators_pool)), desc='SpeedTest Process', ncols=80):
             _ts = test_translators_pool[i]
             try:
-                _ = self._test_translate(_ts, timeout=None, if_show_time_stat=True)
+                _ = await self._test_translate(_ts, timeout=None, if_show_time_stat=True)
             except:
                 pass
         return
 
-    def preaccelerate_and_speedtest(self, timeout: Optional[float] = None, **kwargs: str) -> dict:
-        result = self.preaccelerate(timeout=timeout, **kwargs)
+    async def preaccelerate_and_speedtest(self, timeout: Optional[float] = None, **kwargs: str) -> dict:
+        result = await self.preaccelerate(timeout=timeout, **kwargs)
         sys.stderr.write('\n\n')
-        self.speedtest()
+        await self.speedtest()
         return result
 
 
-tss = TranslatorsServer()
+async_tss = TranslatorsServer()
+translate_text = async_tss.translate_text
+translate_html = async_tss.translate_html
+translators_pool = async_tss.translators_pool
+get_languages = async_tss.get_languages
+get_region_of_server = async_tss.get_region_of_server
 
-_alibaba = tss._alibaba
-alibaba = tss.alibaba
-_apertium = tss._apertium
-apertium = tss.apertium
-_argos = tss._argos
-argos = tss.argos
-_baidu = tss._baidu
-baidu = tss.baidu
-_bing = tss._bing
-bing = tss.bing
-_caiyun = tss._caiyun
-caiyun = tss.caiyun
-_cloudTranslation = tss._cloudTranslation
-cloudTranslation = tss.cloudTranslation
-_deepl = tss._deepl
-deepl = tss.deepl
-_elia = tss._elia
-elia = tss.elia
-_google = tss._google
-google = tss.google
-_hujiang = tss._hujiang
-hujiang = tss.hujiang
-_iciba = tss._iciba
-iciba = tss.iciba
-_iflytek = tss._iflytek
-iflytek = tss.iflytek
-_iflyrec = tss._iflyrec
-iflyrec = tss.iflyrec
-_itranslate = tss._itranslate
-itranslate = tss.itranslate
-_judic = tss._judic
-judic = tss.judic
-_languageWire = tss._languageWire
-languageWire = tss.languageWire
-_lingvanex = tss._lingvanex
-lingvanex = tss.lingvanex
-_niutrans = tss._niutrans
-niutrans = tss.niutrans
-_mglip = tss._mglip
-mglip = tss.mglip
-_mirai = tss._mirai
-mirai = tss.mirai
-_modernMt = tss._modernMt
-modernMt = tss.modernMt
-_myMemory = tss._myMemory
-myMemory = tss.myMemory
-_papago = tss._papago
-papago = tss.papago
-_qqFanyi = tss._qqFanyi
-qqFanyi = tss.qqFanyi
-_qqTranSmart = tss._qqTranSmart
-qqTranSmart = tss.qqTranSmart
-_reverso = tss._reverso
-reverso = tss.reverso
-_sogou = tss._sogou
-sogou = tss.sogou
-_sysTran = tss._sysTran
-sysTran = tss.sysTran
-_tilde = tss._tilde
-tilde = tss.tilde
-_translateCom = tss._translateCom
-translateCom = tss.translateCom
-_translateMe = tss._translateMe
-translateMe = tss.translateMe
-_utibet = tss._utibet
-utibet = tss.utibet
-_volcEngine = tss._volcEngine
-volcEngine = tss.volcEngine
-_yandex = tss._yandex
-yandex = tss.yandex
-_yeekit = tss._yeekit
-yeekit = tss.yeekit
-_youdao = tss._youdao
-youdao = tss.youdao
-
-translate_text = tss.translate_text
-translate_html = tss.translate_html
-translators_pool = tss.translators_pool
-get_languages = tss.get_languages
-get_region_of_server = tss.get_region_of_server
-
-preaccelerate = tss.preaccelerate
-speedtest = tss.speedtest
-preaccelerate_and_speedtest = tss.preaccelerate_and_speedtest
+preaccelerate = async_tss.preaccelerate
+speedtest = async_tss.speedtest
+preaccelerate_and_speedtest = async_tss.preaccelerate_and_speedtest
 # sys.stderr.write(f'Support translators {translators_pool} only.\n')

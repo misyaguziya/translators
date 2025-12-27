@@ -187,7 +187,6 @@ class Deepl(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -198,8 +197,8 @@ class Deepl(Tse):
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(proxies)
+            host_html = await (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
             self.language_map = self.get_language_map(host_html, **debug_lang_kwargs)
@@ -215,7 +214,7 @@ class Deepl(Tse):
                                             headers=self.api_headers,
                                             timeout=timeout)
         r_s.raise_for_status()
-        s_data = r_s.json()
+        s_data = await r_s.json()
         from_language = s_data['result']['lang']['detected']
         s_sentences = [it['sentences'][0]['text'] for item in s_data['result']['texts'] for it in item['chunks']]
 
@@ -224,7 +223,7 @@ class Deepl(Tse):
                                              headers=self.api_headers,
                                              timeout=timeout)
         r_cs.raise_for_status()
-        data = r_cs.json()
+        data = await r_cs.json()
         await asyncio.sleep(sleep_seconds)
         self.request_id += 3
         self.query_count += 1

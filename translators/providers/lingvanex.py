@@ -42,7 +42,7 @@ class LingvanexV1(Tse):
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
         params = {'all': 'true', 'code': 'en_GB', 'platform': 'dp', '_': self.get_timestamp()}
-        detail_lang_map = (await ss.get(lang_url, params=params, headers=headers, timeout=timeout)).json()
+        detail_lang_map = await (await ss.get(lang_url, params=params, headers=headers, timeout=timeout)).json()
         for _ in range(3):
             _ = ss.get(lang_url, params={'platform': 'dp'}, headers=headers, timeout=timeout)
         lang_list = sorted(set([item['full_code'] for item in detail_lang_map['result']]))
@@ -55,7 +55,7 @@ class LingvanexV1(Tse):
     async def get_d_lang_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict,
                                    timeout: Optional[float]) -> dict:
         params = {'all': 'true', 'code': 'en_GB', 'platform': 'dp', '_': self.get_timestamp()}
-        return (await ss.get(lang_url, params=params, headers=headers, timeout=timeout)).json()
+        return await (await ss.get(lang_url, params=params, headers=headers, timeout=timeout)).json()
 
     def get_auth(self, auth_url: str, ss: SessionType, headers: dict, timeout: Optional[float]) -> dict:
         js_html = ss.get(auth_url, headers=headers, timeout=timeout).text
@@ -63,7 +63,7 @@ class LingvanexV1(Tse):
 
     async def get_auth_async(self, auth_url: str, ss: AsyncSessionType, headers: dict,
                              timeout: Optional[float]) -> dict:
-        js_html = (await ss.get(auth_url, headers=headers, timeout=timeout)).text
+        js_html = await(await ss.get(auth_url, headers=headers, timeout=timeout)).text()
         return {k: v for k, v in re.compile(',(.*?)="(.*?)"').findall(js_html)}
 
     @Tse.time_stat
@@ -182,7 +182,6 @@ class LingvanexV1(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -194,7 +193,7 @@ class LingvanexV1(Tse):
         if not (
                 self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.auth_info and self.mode == mode):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            self.async_session = Tse.get_async_client_session(proxies)
             _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
             self.auth_info = await self.get_auth_async(self.auth_url, self.async_session, self.host_headers, timeout)
 
@@ -233,7 +232,7 @@ class LingvanexV1(Tse):
         payload = urllib.parse.urlencode(payload)
         r = await self.async_session.post(self.api_url, data=payload, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await  r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['result']
@@ -267,12 +266,12 @@ class LingvanexV2(Tse):
     @Tse.debug_language_map_async
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
-        self.detail_language_map = (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
+        self.detail_language_map = await (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
         lang_list = sorted(set([item['full_code'] for item in self.detail_language_map['result']]))
         return {}.fromkeys(lang_list, lang_list)
 
     def get_auth(self, host_html: str) -> str:
-        return re.compile('const g="(.*?)"').findall(host_html)[0]
+        return re.compile('const API_BEARER_TOKEN = "(.*?)"').findall(host_html)[0]
 
     @Tse.time_stat
     @Tse.check_query
@@ -385,8 +384,8 @@ class LingvanexV2(Tse):
         if not (
                 self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.auth):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(proxies)
+            host_html = await(await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
             self.auth = self.get_auth(host_html)
             self.host_headers.update({'authorization': self.auth})
             self.api_headers.update({'authorization': self.auth})
@@ -411,7 +410,7 @@ class LingvanexV2(Tse):
         payload = urllib.parse.urlencode(payload)
         r = await self.async_session.post(self.api_url, data=payload, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['result']

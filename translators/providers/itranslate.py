@@ -142,7 +142,6 @@ class Itranslate(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -153,16 +152,16 @@ class Itranslate(Tse):
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            self.async_session = Tse.get_async_client_session(proxies)
             _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
 
             if not self.language_url:
-                manifest_data = (
+                manifest_data = await (
                     await self.async_session.get(self.manifest_url, headers=self.host_headers, timeout=timeout)).json()
                 self.language_url = manifest_data.get('main.js')
 
-            lang_html = (
-                await self.async_session.get(self.language_url, headers=self.host_headers, timeout=timeout)).text
+            lang_html = await (
+                await self.async_session.get(self.language_url, headers=self.host_headers, timeout=timeout)).text()
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
             self.language_map = await self.get_language_map_async(lang_html, **debug_lang_kwargs)
@@ -180,7 +179,7 @@ class Itranslate(Tse):
         }
         r = await self.async_session.post(self.api_url, headers=self.api_headers, json=payload, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['target']['text']

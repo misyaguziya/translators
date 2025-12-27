@@ -4,8 +4,10 @@ import re
 import time
 from typing import Optional, Union
 
+import aiohttp
+
 from translators.base import Tse, LangMapKwargsType, TranslatorError, ApiKwargsType, AsyncSessionType, SessionType, \
-    ResponseType
+    ResponseType, AsyncResponseType
 
 
 class AlibabaV1(Tse):
@@ -46,6 +48,26 @@ class AlibabaV1(Tse):
             o += a
         return o[:42]
 
+    async def get_dmtrack_pageid_async(self, host_response: AsyncResponseType) -> str:
+        try:
+            e = re.compile("dmtrack_pageid='(\\w+)';").findall(await host_response.text())[0]
+        except:
+            e = ''
+        if not e:
+            e = dict(host_response.cookies).get("cna", "001")
+            e = re.compile('[^a-z\\d]').sub(repl='', string=e.lower())[:16]
+        else:
+            n, r = e[0:16], e[16:26]
+            i = hex(int(r, 10))[2:] if re.compile('^[\\-+]?[0-9]+$').match(r) else r
+            e = n + i
+
+        s = self.get_timestamp()
+        o = ''.join([e, hex(s)[2:]])
+        for _ in range(1, 10):
+            a = hex(int(random.random() * 1e10))[2:]  # int->str: 16, '0x'
+            o += a
+        return o[:42]
+
     @Tse.debug_language_map
     def get_language_map(self, ss: SessionType, lang_url: str, use_domain: str, dmtrack_pageid: str,
                          timeout: Optional[float], **kwargs: LangMapKwargsType) -> dict:
@@ -57,7 +79,7 @@ class AlibabaV1(Tse):
     async def get_language_map_async(self, ss: AsyncSessionType, lang_url: str, use_domain: str, dmtrack_pageid: str,
                                      timeout: Optional[float], **kwargs: LangMapKwargsType) -> dict:
         params = {'dmtrack_pageid': dmtrack_pageid, 'biz_type': use_domain}
-        language_dict = (await ss.get(lang_url, params=params, headers=self.host_headers, timeout=timeout)).json()
+        language_dict = await (await ss.get(lang_url, params=params, headers=self.host_headers, timeout=timeout)).json()
         return dict(map(lambda x: x, [(x['sourceLuange'], x['targetLanguages']) for x in language_dict['languageMap']]))
 
     @Tse.time_stat
@@ -166,7 +188,6 @@ class AlibabaV1(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -178,14 +199,14 @@ class AlibabaV1(Tse):
         if not (
                 self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.dmtrack_pageid):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            self.async_session = Tse.get_async_client_session(proxies)
             host_response = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
             # Need to access cookies from response or session. niquests/httpx handles cookies in session usually.
             # get_dmtrack_pageid might need adaptation if it reads cookies from response object structure difference.
             # Assuming basic structure compatibility or cookies in session.
             # For simplicity, we assume get_dmtrack_pageid works with the async response object or we extract cookies manually if needed.
             # niquests response has .cookies similar to requests.
-            self.dmtrack_pageid = self.get_dmtrack_pageid(host_response)
+            self.dmtrack_pageid = await self.get_dmtrack_pageid_async(host_response)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
             self.language_map = await self.get_language_map_async(self.async_session, self.get_language_url, use_domain,
@@ -205,7 +226,7 @@ class AlibabaV1(Tse):
         r = await self.async_session.post(self.api_url, headers=self.api_headers, params=params, data=payload,
                                           timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['listTargetText'][0]
@@ -367,32 +388,32 @@ class AlibabaV2(Tse):
         if not (
                 self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.csrf_token):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(proxies)
+            host_html = await (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
             self.get_language_url = f'https:{re.compile(self.get_language_pattern).search(host_html).group()}'
-            lang_html = (
-                await self.async_session.get(self.get_language_url, headers=self.host_headers, timeout=timeout)).text
+            lang_html = await (
+                await self.async_session.get(self.get_language_url, headers=self.host_headers, timeout=timeout)).text()
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
             self.language_map = self.get_language_map(lang_html, **debug_lang_kwargs)
             self.detail_language_map = self.get_d_lang_map(lang_html)
 
             _ = await self.async_session.get(self.csrf_url, headers=self.host_headers, timeout=timeout)
-            self.csrf_token = (
+            self.csrf_token =  await (
                 await self.async_session.get(self.csrf_url, headers=self.host_headers, timeout=timeout)).json()
             self.api_headers.update({self.csrf_token['headerName']: self.csrf_token['token']})
 
         from_language, to_language = self.check_language(from_language, to_language, self.language_map, self.output_zh)
-        files_data = {
-            'query': (None, query_text),
-            'srcLang': (None, from_language),
-            'tgtLang': (None, to_language),
-            '_csrf': (None, self.csrf_token['token']),
-            'domain': (None, self.professional_field[0]),
-        }  # Content-Type: multipart/form-data
-        r = await self.async_session.post(self.api_url, files=files_data, headers=self.api_headers, timeout=timeout)
+        # Content-Type: multipart/form-data
+        form = aiohttp.FormData()
+        form.add_field('query', query_text)
+        form.add_field('srcLang', from_language)
+        form.add_field('tgtLang', to_language)
+        form.add_field('_csrf', self.csrf_token['token'])
+        form.add_field('domain', self.professional_field[0])
+        r = await self.async_session.post(self.api_url, data=form, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data =  await r.json()
         time.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['data']['translateText']

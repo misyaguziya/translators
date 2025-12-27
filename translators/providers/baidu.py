@@ -43,7 +43,7 @@ class BaiduV1(Tse):
     @Tse.debug_language_map_async
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
-        js_html = (await ss.get(lang_url, headers=headers, timeout=timeout)).text
+        js_html = await (await ss.get(lang_url, headers=headers, timeout=timeout)).text()
         lang_str = re.compile('exports={auto:(.*?)}}}},').search(js_html).group()[8:-3]
         lang_list = re.compile('(\\w+):{zhName:').findall(lang_str)
         lang_list = sorted(list(set(lang_list)))
@@ -151,7 +151,6 @@ class BaiduV1(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -162,10 +161,10 @@ class BaiduV1(Tse):
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            self.async_session = Tse.get_async_client_session(proxies)
             _ = await self.async_session.get(self.host_url, headers=self.host_headers,
                                              timeout=timeout)  # must twice, send cookies.
-            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            host_html = await (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
 
             if not self.get_lang_url:
                 self.get_lang_url = re.compile(self.get_lang_url_pattern).search(host_html).group()
@@ -189,7 +188,7 @@ class BaiduV1(Tse):
         }
         r = await self.async_session.post(self.api_url, data=payload, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else '\n'.join([item['dst'] for item in data['data']])
@@ -231,7 +230,7 @@ class BaiduV2(Tse):
     @Tse.debug_language_map_async
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
-        js_html = (await ss.get(lang_url, headers=headers, timeout=timeout)).text
+        js_html = await (await ss.get(lang_url, headers=headers, timeout=timeout)).text()
         lang_str = re.compile('exports={auto:(.*?)}}}},').search(js_html).group()[8:-3]
         lang_list = re.compile('(\\w+):{zhName:').findall(lang_str)
         lang_list = sorted(list(set(lang_list)))
@@ -254,7 +253,7 @@ class BaiduV2(Tse):
         gtk_list = re.compile("""window.gtk = '(.*?)';|window.gtk = "(.*?)";""").findall(host_html)[0]
         gtk = gtk_list[0] or gtk_list[1]
 
-        sign_html = (await ss.get(self.get_sign_url, headers=headers, timeout=timeout)).text
+        sign_html = await (await ss.get(self.get_sign_url, headers=headers, timeout=timeout)).text()
         begin_label = 'define("translation:widget/translate/input/pGrab",function(r,o,t){'
         end_label = 'var i=null;t.exports=e});'
         sign_js = sign_html[sign_html.find(begin_label) + len(begin_label):sign_html.find(end_label)]
@@ -414,10 +413,10 @@ class BaiduV2(Tse):
         if not (
                 self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.token and self.sign):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            self.async_session = Tse.get_async_client_session(proxies)
             _ = await self.async_session.get(self.host_url, headers=self.host_headers,
                                              timeout=timeout)  # must twice, reload token.
-            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            host_html = await (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
             self.token = self.get_tk(host_html)
             self.sign = await self.get_sign_async(query_text, host_html, self.async_session, self.host_headers, timeout)
 
@@ -439,7 +438,7 @@ class BaiduV2(Tse):
         res = await self.async_session.post(self.langdetect_url, headers=self.api_headers, data=payload,
                                             timeout=timeout)
         if from_language == 'auto':
-            from_language = res.json()['lan']
+            from_language = (await res.json())['lan']
 
         params = {"from": from_language, "to": to_language}
         payload = {
@@ -458,7 +457,7 @@ class BaiduV2(Tse):
         r = await self.async_session.post(self.api_url, params=params, data=payload, headers=self.api_headers,
                                           timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else '\n'.join([x['dst'] for x in data['trans_result']['data']])

@@ -171,7 +171,6 @@ class Bing(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -183,8 +182,8 @@ class Bing(Tse):
         if not (
                 self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.tk and self.ig_iid):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(proxies)
+            host_html = await (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
             self.tk = await self.get_tk_async(host_html)
             self.ig_iid = self.get_ig_iid(host_html)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
@@ -209,7 +208,7 @@ class Bing(Tse):
         self.query_count += 1
 
         try:
-            data = r.json()
+            data = await r.json()
             return data[0] if is_detail_result else data[0]['translations'][0]['text']
         except Exception:  # 122
             data_html = r.text

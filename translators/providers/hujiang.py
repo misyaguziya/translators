@@ -120,7 +120,6 @@ class Hujiang(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -131,9 +130,13 @@ class Hujiang(Tse):
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
-            self.async_session.cookies.update({'HJ_UID': self.hj_uid, 'HJC_USRC': 'uzhi', 'HJC_NUID': '1'})
-            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(proxies)
+            self.async_session.cookie_jar.update_cookies({
+                'HJ_UID': self.hj_uid,
+                'HJC_USRC': 'uzhi',
+                'HJC_NUID': '1'
+            })
+            host_html = await (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
             self.language_map = self.get_language_map(host_html, **debug_lang_kwargs)
@@ -147,7 +150,7 @@ class Hujiang(Tse):
         api_url = f'{self.api_url}/{from_language}/{to_language}'
         r = await self.async_session.post(api_url, headers=self.api_headers, data=payload, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         time.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['data']['content']  # supported by baidu.

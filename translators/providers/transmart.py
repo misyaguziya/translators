@@ -39,7 +39,7 @@ class QQTranSmart(Tse):
     @Tse.debug_language_map_async
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
-        js_html = (await ss.get(lang_url, headers=self.host_headers, timeout=timeout)).text
+        js_html = await (await ss.get(lang_url, headers=self.host_headers, timeout=timeout)).text()
         lang_str_list = re.compile('lngs:\\[(.*?)]').findall(js_html)
         lang_list = [await exejs.evaluate_async(f'[{x}]') for x in lang_str_list]
         lang_list = sorted(list(set([lang for langs in lang_list for lang in langs])))
@@ -172,7 +172,6 @@ class QQTranSmart(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -183,8 +182,8 @@ class QQTranSmart(Tse):
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(proxies)
+            host_html = await (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
 
             if not self.get_lang_url:
                 self.get_lang_url = f'{self.host_url}{re.compile(self.get_lang_url_pattern).search(host_html).group()}'
@@ -210,7 +209,7 @@ class QQTranSmart(Tse):
             'text': query_text,
             'normalize': {'merge_broken_line': 'false'}
         }
-        split_data = (await self.async_session.post(self.api_url, json=split_payload, headers=self.api_headers,
+        split_data = await (await self.async_session.post(self.api_url, json=split_payload, headers=self.api_headers,
                                                     timeout=timeout)).json()
         text_list = self.split_sentence(split_data)
 
@@ -229,7 +228,7 @@ class QQTranSmart(Tse):
         }
         r = await self.async_session.post(self.api_url, json=api_payload, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else ''.join(data['auto_translation'])

@@ -53,9 +53,9 @@ class Sogou(Tse):
             if not self.get_language_url:
                 lang_url_path = re.compile(self.get_language_pattern).search(host_html).group()
                 self.get_language_url = ''.join(['https:', lang_url_path])
-            lang_html = (await ss.get(self.get_language_url, headers=self.host_headers, timeout=timeout)).text
+            lang_html = await (await ss.get(self.get_language_url, headers=self.host_headers, timeout=timeout)).text()
         except:
-            lang_html = (await ss.get(lang_old_url, headers=self.host_headers, timeout=timeout)).text
+            lang_html = await (await ss.get(lang_old_url, headers=self.host_headers, timeout=timeout)).text()
 
         lang_list_str = re.compile('"ALL":\\[(.*?)]').search(lang_html).group().replace('!0', '1').replace('!1', '0')[
             6:]
@@ -165,7 +165,6 @@ class Sogou(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -178,8 +177,8 @@ class Sogou(Tse):
                 self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.uuid):
             self.uuid = str(uuid.uuid4())
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(proxies)
+            host_html = await (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
             self.language_map = await self.get_language_map_async(host_html, self.get_language_old_url,
@@ -192,7 +191,7 @@ class Sogou(Tse):
         payload = self.get_form(query_text, from_language, to_language, self.uuid)
         r = await self.async_session.post(self.api_url, headers=self.api_headers, data=payload, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['data']['translate']['dit']

@@ -125,7 +125,6 @@ class TranslateCom(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -136,10 +135,10 @@ class TranslateCom(Tse):
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
-            _ = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout))
+            self.async_session = Tse.get_async_client_session(proxies)
+            _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
             lang_r = await self.async_session.get(self.language_url, headers=self.host_headers, timeout=timeout)
-            self.language_description = lang_r.json()
+            self.language_description = await lang_r.json()
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
             self.language_map = self.get_language_map(self.language_description, **debug_lang_kwargs)
@@ -148,7 +147,7 @@ class TranslateCom(Tse):
             detect_form = {'text_to_translate': query_text}
             r_detect = await self.async_session.post(self.lang_detect_url, data=detect_form, headers=self.api_headers,
                                                      timeout=timeout)
-            from_language = (r_detect.json())['language']
+            from_language = (await r_detect.json())['language']
 
         from_language, to_language = self.check_language(from_language, to_language, self.language_map,
                                                          output_zh=self.output_zh)
@@ -161,7 +160,7 @@ class TranslateCom(Tse):
         }
         r = await self.async_session.post(self.api_url, data=payload, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['translated_text']

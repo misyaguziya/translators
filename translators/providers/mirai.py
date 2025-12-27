@@ -43,7 +43,7 @@ class Mirai(Tse):
     @Tse.debug_language_map_async
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
-        js_html = (await ss.get(lang_url, headers=headers, timeout=timeout)).text
+        js_html = await(await ss.get(lang_url, headers=headers, timeout=timeout)).text()
         lang_pairs = re.compile('"/trial/(\\w{2})/(\\w{2})"').findall(js_html)
         return {f_lang: [v for k, v in lang_pairs if k == f_lang] for f_lang, t_lang in lang_pairs}
 
@@ -167,7 +167,6 @@ class Mirai(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -179,9 +178,9 @@ class Mirai(Tse):
         if not (
                 self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.tran_key):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            self.async_session = Tse.get_async_client_session(proxies)
             # _ = await self.async_session.get(self.home_url, headers=self.host_headers, timeout=timeout)
-            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            host_html = await(await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
             self.tran_key = re.compile('var tran = "(.*?)";').search(host_html).group(1)
             lang_url_part = re.compile(self.lang_url_pattern).search(host_html).group()
             self.lang_url = f'https://miraitranslate.com/trial/inmt/{lang_url_part}'
@@ -195,7 +194,7 @@ class Mirai(Tse):
             r = await self.async_session.post(self.detect_lang_url, headers=self.api_json_headers,
                                               json={'text': query_text},
                                               timeout=timeout)
-            from_language = r.json()['language']
+            from_language =(await r.json())['language']
             from_language = self.lang_zh_map[from_language] if 'zh' in from_language else from_language
         from_language, to_language = self.check_language(from_language, to_language, self.language_map,
                                                          output_zh=self.output_zh)
@@ -227,7 +226,7 @@ class Mirai(Tse):
         }
         r = await self.async_session.post(self.api_url, data=payload, headers=self.api_text_headers, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['ouputs'][0]['output'][0]['translation']

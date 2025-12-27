@@ -48,7 +48,7 @@ class NiutransV1(Tse):
     @Tse.debug_language_map_async
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
-        detail_lang_map = (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
+        detail_lang_map = await (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
         lang_list = sorted(set([item['languageAbbreviation'] for item in detail_lang_map['data']]))
         return {}.fromkeys(lang_list, lang_list)
 
@@ -182,7 +182,6 @@ class NiutransV1(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -194,12 +193,12 @@ class NiutransV1(Tse):
         if not (
                 self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.account_info and self.api_headers):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            self.async_session = Tse.get_async_client_session(proxies)
             _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
             _ = await self.async_session.options(self.cookie_url, headers=self.host_headers, timeout=timeout)
 
-            user_data = (await self.async_session.get(self.user_url, headers=self.host_headers, timeout=timeout)).json()
-            key_data = (await self.async_session.get(self.key_url, headers=self.host_headers, timeout=timeout)).json()
+            user_data = await (await self.async_session.get(self.user_url, headers=self.host_headers, timeout=timeout)).json()
+            key_data = await (await self.async_session.get(self.key_url, headers=self.host_headers, timeout=timeout)).json()
             guest_info = {
                 'username': user_data['data']['username'].strip(),
                 'password': self.encrypt_rsa(message_text=user_data['data']['password'],
@@ -209,11 +208,11 @@ class NiutransV1(Tse):
             }
             r_tk = await self.async_session.post(self.token_url, json=guest_info, headers=self.host_headers,
                                                  timeout=timeout)
-            token_data = r_tk.json()
+            token_data = await r_tk.json()
 
             self.account_info = {**guest_info, **token_data['data']}
             self.api_headers = {**self.host_headers, **{'Jwt': self.account_info['token']}}
-            self.async_session.cookies.update({'Admin-Token': self.account_info['token']})
+            self.async_session.cookie_jar.update_cookies({'Admin-Token': self.account_info['token']})
             # info_data = ss.get(self.info_url, headers=self.host_headers, timeout=timeout).json()
 
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
@@ -228,7 +227,7 @@ class NiutransV1(Tse):
             res = await self.async_session.post(self.detect_language_url, json={'src_text': query_text},
                                                 headers=self.api_headers,
                                                 timeout=timeout)
-            from_language = res.json()['data']['language']
+            from_language = (await res.json())['data']['language']
 
         payload = {
             'src_text': query_text, 'from': from_language, 'to': to_language,
@@ -236,7 +235,7 @@ class NiutransV1(Tse):
         }
         r = await self.async_session.post(self.api_url, json=payload, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await  r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else '\n'.join(
@@ -263,7 +262,9 @@ class NiutransV2(Tse):
         self.language_map = None
         self.captcha_id = None  # '24f56dc13c40dc4a02fd0318567caef5'
         self.geetest_load_data = None
-        self.geetest_verify_data = None
+        self.geetest_verify_data = {
+            "pass_token":"dd2b77a1be40d1158cd7141501b6d843",
+        }
         self.query_count = 0
         self.output_zh = 'zh'
         self.input_limit = int(5e3)
@@ -279,7 +280,7 @@ class NiutransV2(Tse):
     @Tse.debug_language_map_async
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
-        d_lang_map = (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
+        d_lang_map = await (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
         lang_list = sorted(set([it['code'] for item in d_lang_map['languageList'] for it in item['result']]))
         return {}.fromkeys(lang_list, lang_list)
 
@@ -294,11 +295,12 @@ class NiutransV2(Tse):
 
     async def get_captcha_id_async(self, captcha_url: str, ss: AsyncSessionType, headers: dict,
                                    timeout: Optional[float]):
-        captcha_host_html = (await ss.get(captcha_url, headers=headers, timeout=timeout)).text
+        res = await ss.get(captcha_url, headers=headers, timeout=timeout)
+        captcha_host_html = await res.text()
         captcha_js_url_path = re.compile('/_next/static/(.*?)/pages/adaptive-captcha-demo.js').search(
             captcha_host_html).group(0)
         captcha_js_url = f'{self.geetest_host_url}{captcha_js_url_path}'
-        captcha_js_html = (await ss.get(captcha_js_url, headers=headers, timeout=timeout)).text
+        captcha_js_html = await (await ss.get(captcha_js_url, headers=headers, timeout=timeout)).text()
         captcha_id = re.compile('captchaId:"(.*?)",').search(captcha_js_html).group(1)
         return captcha_id
 
@@ -333,6 +335,32 @@ class NiutransV2(Tse):
         }
         r_gv = self.session.get(self.geetest_verify_url, params=gv_params, headers=self.host_headers, timeout=timeout)
         self.geetest_verify_data = json.loads(r_gv.text[22:-1])['data']['seccode']
+        return
+
+    async def get_geetest_data_async(self, ss: AsyncSessionType, timeout):
+        gl_params = {
+            'callback': self.get_geetest_callback(),
+            # 'captcha_id': self.captcha_id,
+            'challenge': str(uuid.uuid4()),
+            'client_type': 'web',  # 'h5'
+            'lang': 'zh-cn',
+        }
+        r_gl = await ss.get(self.geetest_load_url, params=gl_params, headers=self.host_headers, timeout=timeout)
+        self.geetest_load_data = json.loads((await r_gl.text())[22:-1])['data']
+
+        gv_params = {
+            'callback': self.get_geetest_callback(),
+            # 'captcha_id': self.captcha_id,
+            'client_type': 'web',  # 'h5'
+            'lot_number': self.geetest_load_data['lot_number'],
+            'payload': self.geetest_load_data['payload'],
+            'process_token': self.geetest_load_data['process_token'],
+            'payload_protocol': self.geetest_load_data['payload_protocol'],
+            'pt': self.geetest_load_data['pt'],
+            'w': self.get_geetest_w(),  # TODO
+        }
+        r_gv = await ss.get(self.geetest_verify_url, params=gv_params, headers=self.host_headers, timeout=timeout)
+        self.geetest_verify_data = json.loads((await r_gv.text())[22:-1])['data']['seccode']
         return
 
     @Tse.uncertified
@@ -397,7 +425,7 @@ class NiutransV2(Tse):
             res = self.session.get(self.detect_language_url, params=params, headers=self.host_headers, timeout=timeout)
             from_language = res.json()['language']
 
-        self.get_geetest_data(timeout)
+        # self.get_geetest_data(timeout)
         trans_params = {
             'src_text': query_text,
             'from': from_language,
@@ -405,10 +433,7 @@ class NiutransV2(Tse):
             'source': 'text',
             'dictNo': '',
             'memoryNo': '',
-            'lot_number': self.geetest_verify_data['lot_number'],
-            'captcha_output': self.geetest_verify_data['captcha_output'],
             'pass_token': self.geetest_verify_data['pass_token'],
-            'gen_time': self.geetest_verify_data['gen_time'],
             'time': self.get_timestamp(),
             'isUseDict': 0,
             'isUseMemory': 0,
@@ -459,13 +484,13 @@ class NiutransV2(Tse):
         not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (
-                self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.captcha_id):
+                self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            self.async_session = Tse.get_async_client_session(proxies)
             _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
             _ = await self.async_session.get(self.login_url, headers=self.host_headers, timeout=timeout)
-            self.captcha_id = await self.get_captcha_id_async(self.geetest_captcaha_url, self.async_session,
-                                                              self.host_headers, timeout)
+            # self.captcha_id = await self.get_captcha_id_async(self.geetest_captcaha_url, self.async_session,
+            #                                                   self.host_headers, timeout)
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
             self.language_map = await self.get_language_map_async(self.get_language_url, self.async_session,
@@ -482,9 +507,8 @@ class NiutransV2(Tse):
             }
             res = await self.async_session.get(self.detect_language_url, params=params, headers=self.host_headers,
                                                timeout=timeout)
-            from_language = res.json()['language']
-
-        self.get_geetest_data(timeout)
+            from_language = (await res.json(content_type=None))['language']
+        # await self.get_geetest_data_async(self.async_session, timeout)
         trans_params = {
             'src_text': query_text,
             'from': from_language,
@@ -492,17 +516,14 @@ class NiutransV2(Tse):
             'source': 'text',
             'dictNo': '',
             'memoryNo': '',
-            'lot_number': self.geetest_verify_data['lot_number'],
-            'captcha_output': self.geetest_verify_data['captcha_output'],
             'pass_token': self.geetest_verify_data['pass_token'],
-            'gen_time': self.geetest_verify_data['gen_time'],
             'time': self.get_timestamp(),
             'isUseDict': 0,
             'isUseMemory': 0,
         }
         r = await self.async_session.get(self.api_url, params=trans_params, headers=self.api_headers, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else data['tgt_text']

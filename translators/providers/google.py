@@ -231,7 +231,6 @@ class GoogleV1(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -243,8 +242,8 @@ class GoogleV1(Tse):
         if not (
                 self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.api_url):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
-            host_html = (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text
+            self.async_session = Tse.get_async_client_session(proxies)
+            host_html = await (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
 
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
@@ -264,7 +263,7 @@ class GoogleV1(Tse):
 
         r = await self.async_session.get(self.api_url, headers=self.host_headers, timeout=timeout)
         r.raise_for_status()
-        data = r.json()
+        data = await r.json()
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
         return data if is_detail_result else ''.join([item[0] for item in data[0] if isinstance(item[0], str)])
@@ -452,7 +451,6 @@ class GoogleV2(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
@@ -463,12 +461,12 @@ class GoogleV2(Tse):
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
         if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(http_client, proxies)
+            self.async_session = Tse.get_async_client_session(proxies)
             r = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
             if urllib.parse.urlparse(self.consent_url).hostname == urllib.parse.urlparse(str(r.url)).hostname:
-                form_data = self.get_consent_data(r.text)
-                host_html = (await self.async_session.post(self.consent_url, data=form_data, headers=self.host_headers,
-                                                           timeout=timeout)).text
+                form_data = self.get_consent_data(await r.text())
+                host_html = await (await self.async_session.post(self.consent_url, data=form_data, headers=self.host_headers,
+                                                           timeout=timeout)).text()
             else:
                 host_html = r.text
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
@@ -482,7 +480,7 @@ class GoogleV2(Tse):
         rpc_data = urllib.parse.urlencode(rpc_data)
         r = await self.async_session.post(self.api_url, headers=self.api_headers, data=rpc_data, timeout=timeout)
         r.raise_for_status()
-        json_data = json.loads(r.text[6:])
+        json_data = json.loads((await r.text())[6:])
         data = json.loads(json_data[0][2])
         await asyncio.sleep(sleep_seconds)
         self.query_count += 1
