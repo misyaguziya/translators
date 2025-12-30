@@ -4,6 +4,8 @@ import time
 import urllib.parse
 from typing import Optional, Union, Tuple
 
+import aiohttp
+
 from translators.base import Tse, LangMapKwargsType, TranslatorError, ApiKwargsType, AsyncSessionType, SessionType
 
 
@@ -42,9 +44,11 @@ class LingvanexV1(Tse):
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
         params = {'all': 'true', 'code': 'en_GB', 'platform': 'dp', '_': self.get_timestamp()}
-        detail_lang_map = await (await ss.get(lang_url, params=params, headers=headers, timeout=timeout)).json()
+        async with ss.get(lang_url, params=params, headers=headers, timeout=timeout) as response:
+            detail_lang_map = await response.json()
         for _ in range(3):
-            _ = ss.get(lang_url, params={'platform': 'dp'}, headers=headers, timeout=timeout)
+            async with ss.get(lang_url, params={'platform': 'dp'}, headers=headers, timeout=timeout) as _:
+                pass
         lang_list = sorted(set([item['full_code'] for item in detail_lang_map['result']]))
         return {}.fromkeys(lang_list, lang_list)
 
@@ -55,7 +59,8 @@ class LingvanexV1(Tse):
     async def get_d_lang_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict,
                                    timeout: Optional[float]) -> dict:
         params = {'all': 'true', 'code': 'en_GB', 'platform': 'dp', '_': self.get_timestamp()}
-        return await (await ss.get(lang_url, params=params, headers=headers, timeout=timeout)).json()
+        async with ss.get(lang_url, params=params, headers=headers, timeout=timeout) as response:
+            return await response.json()
 
     def get_auth(self, auth_url: str, ss: SessionType, headers: dict, timeout: Optional[float]) -> dict:
         js_html = ss.get(auth_url, headers=headers, timeout=timeout).text
@@ -63,7 +68,8 @@ class LingvanexV1(Tse):
 
     async def get_auth_async(self, auth_url: str, ss: AsyncSessionType, headers: dict,
                              timeout: Optional[float]) -> dict:
-        js_html = await(await ss.get(auth_url, headers=headers, timeout=timeout)).text()
+        async with ss.get(auth_url, headers=headers, timeout=timeout) as r:
+            js_html= await r.text()
         return {k: v for k, v in re.compile(',(.*?)="(.*?)"').findall(js_html)}
 
     @Tse.time_stat
@@ -188,14 +194,14 @@ class LingvanexV1(Tse):
         update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
 
-        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
-        not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
-        if not (
-                self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.auth_info and self.mode == mode):
+        async with aiohttp.ClientSession() as async_session:
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(proxies)
-            _ = await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)
-            self.auth_info = await self.get_auth_async(self.auth_url, self.async_session, self.host_headers, timeout)
+
+            async with async_session.get(self.host_url, headers=self.host_headers, timeout=timeout) as _:
+                pass
+
+            if not self.auth_info:
+                self.auth_info = await self.get_auth_async(self.auth_url, async_session, self.host_headers, timeout)
 
             if mode not in self.model_pool:
                 raise TranslatorError
@@ -210,32 +216,31 @@ class LingvanexV1(Tse):
 
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = await self.get_language_map_async(self.language_url, self.async_session,
+            self.language_map = await self.get_language_map_async(self.language_url, async_session,
                                                                   self.host_headers, timeout,
                                                                   **debug_lang_kwargs)
-            self.detail_language_map = await self.get_d_lang_map_async(self.language_url, self.async_session,
+            self.detail_language_map = await self.get_d_lang_map_async(self.language_url, async_session,
                                                                        self.host_headers, timeout)
 
-        if from_language == 'auto':
-            from_language = self.warning_auto_lang('lingvanex', self.default_from_language, if_print_warning)
-        from_language, to_language = self.check_language(from_language, to_language, self.language_map,
-                                                         output_zh=self.output_zh,
-                                                         output_en_translator='lingvanex', output_en='en_GB')
-
-        payload = {
-            'from': from_language,
-            'to': to_language,
-            'text': query_text,
-            'platform': 'dp',
-            # 'is_return_text_split_ranges': 'true'
-        }
-        payload = urllib.parse.urlencode(payload)
-        r = await self.async_session.post(self.api_url, data=payload, headers=self.api_headers, timeout=timeout)
-        r.raise_for_status()
-        data = await  r.json()
-        await asyncio.sleep(sleep_seconds)
-        self.query_count += 1
-        return data if is_detail_result else data['result']
+            if from_language == 'auto':
+                from_language = self.warning_auto_lang('lingvanex', self.default_from_language, if_print_warning)
+            from_language, to_language = self.check_language(from_language, to_language, self.language_map,
+                                                             output_zh=self.output_zh,
+                                                             output_en_translator='lingvanex', output_en='en_GB')
+            payload = {
+                'from': from_language,
+                'to': to_language,
+                'text': query_text,
+                'platform': 'dp',
+                # 'is_return_text_split_ranges': 'true'
+            }
+            payload = urllib.parse.urlencode(payload)
+            async with async_session.get(self.api_url, data=payload, headers=self.api_headers, timeout=timeout) as r:
+                r.raise_for_status()
+                data = await r.json()
+            await asyncio.sleep(sleep_seconds)
+            self.query_count += 1
+            return data if is_detail_result else data['result']
 
 
 class LingvanexV2(Tse):
@@ -266,7 +271,8 @@ class LingvanexV2(Tse):
     @Tse.debug_language_map_async
     async def get_language_map_async(self, lang_url: str, ss: AsyncSessionType, headers: dict, timeout: Optional[float],
                                      **kwargs: LangMapKwargsType) -> dict:
-        self.detail_language_map = await (await ss.get(lang_url, headers=headers, timeout=timeout)).json()
+        async with ss.get(lang_url, headers=headers, timeout=timeout) as r:
+            self.detail_language_map = await r.json()
         lang_list = sorted(set([item['full_code'] for item in self.detail_language_map['result']]))
         return {}.fromkeys(lang_list, lang_list)
 
@@ -387,49 +393,40 @@ class LingvanexV2(Tse):
                 :param if_print_warning: bool, default True.
         :return: str or dict
         """
-
         timeout = kwargs.get('timeout', None)
-        proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'niquests')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
-        update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
-        update_session_after_seconds = kwargs.get('update_session_after_seconds', self.default_session_seconds)
         self.check_input_limit(query_text, self.input_limit)
-
-        not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
-        not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
-        if not (
-                self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time and self.auth):
+        async with aiohttp.ClientSession() as async_session:
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(proxies)
-            host_html = await(await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
+            async with async_session.get(self.host_url, headers=self.host_headers, timeout=timeout) as response:
+                host_html = await response.text()
             self.auth = self.get_auth(host_html)
             self.host_headers.update({'authorization': self.auth})
             self.api_headers.update({'authorization': self.auth})
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = await self.get_language_map_async(self.language_url, self.async_session,
+            self.language_map = await self.get_language_map_async(self.language_url, async_session,
                                                                   self.host_headers, timeout,
                                                                   **debug_lang_kwargs)
 
-        if from_language == 'auto':
-            from_language = self.warning_auto_lang('lingvanex', self.default_from_language, if_print_warning)
-        from_language, to_language = self.check_language(from_language, to_language, self.language_map,
-                                                         output_zh=self.output_zh,
-                                                         output_en_translator='lingvanex', output_en='en_GB')
+            if from_language == 'auto':
+                from_language = self.warning_auto_lang('lingvanex', self.default_from_language, if_print_warning)
+            from_language, to_language = self.check_language(from_language, to_language, self.language_map,
+                                                             output_zh=self.output_zh,
+                                                             output_en_translator='lingvanex', output_en='en_GB')
 
-        payload = {
-            'from': from_language,
-            'to': to_language,
-            'text': query_text,
-            'platform': 'dp',
-        }
-        payload = urllib.parse.urlencode(payload)
-        r = await self.async_session.post(self.api_url, data=payload, headers=self.api_headers, timeout=timeout)
-        r.raise_for_status()
-        data = await r.json()
-        await asyncio.sleep(sleep_seconds)
-        self.query_count += 1
-        return data if is_detail_result else data['result']
+            payload = {
+                'from': from_language,
+                'to': to_language,
+                'text': query_text,
+                'platform': 'dp',
+            }
+            payload = urllib.parse.urlencode(payload)
+            async with async_session.get(self.api_url, data=payload, headers=self.api_headers, timeout=timeout) as r:
+                r.raise_for_status()
+                data = await r.json()
+            await asyncio.sleep(sleep_seconds)
+            self.query_count += 1
+            return data if is_detail_result else data['result']

@@ -36,7 +36,6 @@ class Tse:
         self.auto_pool = ('auto', 'detect', 'auto-detect', 'all')
         self.zh_pool = ('zh', 'zh-CN', 'zh-cn', 'zh-CHS', 'zh-Hans', 'zh-Hans_CN', 'cn', 'chi', 'Chinese')
         self.session: Optional[SessionType] = None
-        self.async_session: Optional[AsyncSessionType] = None
 
     @staticmethod
     def time_stat(func):

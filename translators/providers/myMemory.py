@@ -2,6 +2,7 @@ import asyncio
 import time
 from typing import Optional, Union, Tuple
 
+import aiohttp
 import lxml.etree as lxml_etree
 
 from translators.base import Tse, LangMapKwargsType, ApiKwargsType, AsyncSessionType, SessionType
@@ -45,8 +46,8 @@ class MyMemory(Tse):
         et = lxml_etree.HTML(myMemory_host_html)
         lang_list = et.xpath('//*[@id="select_source_mm"]/option/@value')[2:]
         self.myMemory_language_list = sorted(list(set(lang_list)))
-
-        lang_d_list = await (await ss.get(matecat_lang_url, headers=headers, timeout=timeout)).json()
+        async with ss.get(matecat_lang_url, headers=headers, timeout=timeout) as response:
+            lang_d_list = await  response.json()
         self.mateCat_language_list = sorted(list(set([item['code'] for item in lang_d_list])))
 
         lang_list = sorted(list(set(self.myMemory_language_list + self.mateCat_language_list)))
@@ -179,32 +180,33 @@ class MyMemory(Tse):
 
         not_update_cond_freq = 1 if self.query_count % update_session_after_freq != 0 else 0
         not_update_cond_time = 1 if time.time() - self.begin_time < update_session_after_seconds else 0
-        if not (self.async_session and self.language_map and not_update_cond_freq and not_update_cond_time):
+
+        async with aiohttp.ClientSession() as async_session:
             self.begin_time = time.time()
-            self.async_session = Tse.get_async_client_session(proxies)
-            host_html = await (await self.async_session.get(self.host_url, headers=self.host_headers, timeout=timeout)).text()
+            async with async_session.get(self.host_url, headers=self.host_headers, timeout=timeout) as response:
+                host_html = await  response.text()
             debug_lang_kwargs = self.debug_lang_kwargs(from_language, to_language, self.default_from_language,
                                                        if_print_warning)
-            self.language_map = await self.get_language_map_async(host_html, self.get_matecat_language_url,
-                                                                  self.async_session,
+            if not self.language_map:
+                self.language_map = await self.get_language_map_async(host_html, self.get_matecat_language_url,
+                                                                  async_session,
                                                                   self.host_headers, timeout, **debug_lang_kwargs)
 
-        if from_language == 'auto':
-            from_language = self.warning_auto_lang('myMemory', self.default_from_language, if_print_warning)
-        from_language, to_language = self.check_language(from_language, to_language, self.language_map,
-                                                         output_zh=self.output_zh,
-                                                         output_en_translator='myMemory', output_en='en-GB')
+            if from_language == 'auto':
+                from_language = self.warning_auto_lang('myMemory', self.default_from_language, if_print_warning)
+            from_language, to_language = self.check_language(from_language, to_language, self.language_map,
+                                                             output_zh=self.output_zh,
+                                                             output_en_translator='myMemory', output_en='en-GB')
 
-        params = {
-            'q': query_text,
-            'langpair': f'{from_language}|{to_language}'
-        }
-        params = params if mode == 'api' else {**params, **{'mtonly': 1}}
-        api_url = self.api_api_url if mode == 'api' else self.api_web_url
-
-        r = await self.async_session.get(api_url, params=params, headers=self.host_headers, timeout=timeout)
-        r.raise_for_status()
-        data = await r.json()
-        await asyncio.sleep(sleep_seconds)
-        self.query_count += 1
-        return data if is_detail_result else data['responseData']['translatedText']
+            params = {
+                'q': query_text,
+                'langpair': f'{from_language}|{to_language}'
+            }
+            params = params if mode == 'api' else {**params, **{'mtonly': 1}}
+            api_url = self.api_api_url if mode == 'api' else self.api_web_url
+            async with async_session.get(api_url, params=params, headers=self.host_headers, timeout=timeout) as response:
+                response.raise_for_status()
+                data = await response.json()
+            await asyncio.sleep(sleep_seconds)
+            self.query_count += 1
+            return data if is_detail_result else data['responseData']['translatedText']
