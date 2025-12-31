@@ -493,3 +493,9 @@ stronger fanyi(cli)
 6.0.1
 update Dependency's version
 upgrade conda version
+
+6.0.2
+- Added multiple translators: `lara()`, `xunjie()`
+- Enhanced multiple translators: `argos()`, `iciba()`, `lingvanex()`, `youdao()`
+- Enhanced `cli` about input_file
+- Enhanced `translate_html` about parallel

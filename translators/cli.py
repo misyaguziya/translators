@@ -27,10 +27,10 @@ under certain conditions; type `show c' for details.
 
 import os
 import sys
-import platform
 import argparse
 
-from . import __version__, translate_text, translate_html
+from translators import __version__, __author__
+from translators import translate_text, translate_html
 
 
 def translate_cli() -> None:
@@ -40,12 +40,21 @@ def translate_cli() -> None:
     )
     parser.add_argument(
         'input',
-        help='Raw text or path to a file to be translated.'
+        default='',
+        help='Inputs to be translated.'
+    )
+    parser.add_argument(
+        '--text_file',
+        action='store',
+        default='',
+        type=str,
+        dest='text_file',
+        help='path to a file to be translated',
     )
     parser.add_argument(
         '--translator',
         action='store',
-        default='bing',
+        default='alibaba',
         type=str,
         dest='translator',
         help='eg: bing, google, yandex, etc...',
@@ -77,20 +86,20 @@ def translate_cli() -> None:
     parser.add_argument(
         '--version',
         action='version',
-        version='Translators(fanyi for CLI) {} - Python {}'.format(__version__, platform.python_version()),
-        help='show version information.',
+        version=f'Translators(fanyi for CLI) - Version: {__version__} - Author: {__author__}',
+        help='show version and author information.',
     )
     args = parser.parse_args()
 
-    if os.path.exists(args.input):
+    if args.text_file != '' and os.path.exists(args.text_file):
         try:
-            with open(args.input, 'r', encoding='utf-8') as file:
+            with open(file=args.text_file, mode='r', encoding='utf-8') as file:
                 query_text = file.read()
         except Exception as e:
             print(str(e))
             sys.exit(1)
     else:
-        query_text = args.input
+        query_text = args.input.strip()
 
     try:
         translate_fn = translate_html if bool(args.is_html) else translate_text
