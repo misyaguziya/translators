@@ -31,7 +31,7 @@ body:
       label: APP Version
       description: What version of App(or PYPI) are you running?
       placeholder: Tell us what you see!
-      value: "5.9.3 (default)"
+      value: "0.0.1 (default)"
     validations:
       required: true
   - type: dropdown
@@ -40,12 +40,12 @@ body:
       label: Python Version
       description: What version of python are you running?
       options:
-        - "3.12 (default)"
+        - "3.13 (default)"
+        - "3.12"
         - "3.11"
         - "3.10"
         - "3.9"
         - "3.8"
-        - "<3.8"
     validations:
       required: true
   - type: dropdown
@@ -67,7 +67,7 @@ body:
       label: Country/Region
       description: What Country(Region) are you running? (Translation services may be different in different regions)
       placeholder: Tell us what you see!
-      value: "Qatar (example)"
+      value: "China (example)"
     validations:
       required: true
   - type: textarea
