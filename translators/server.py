@@ -5650,7 +5650,6 @@ class Hujiang(Tse):
         self.query_count += 1
         return data if is_detail_result else data['data']['content']  # supported by baidu.
 
-
 class Xunjie(Tse):
     def __init__(self):
         super().__init__()
@@ -5910,6 +5909,7 @@ class TranslatorsServer:
         self.elia = self._elia.elia_api
         self._google = GoogleV2(server_region=self.server_region)
         self.google = self._google.google_api
+        self.async_google = self._google.trans_api_async
         self._hujiang = Hujiang()
         self.hujiang = self._hujiang.hujiang_api
         self._iciba = Iciba()
@@ -5988,6 +5988,14 @@ class TranslatorsServer:
             'tilde': self.tilde, 'translateCom': self.translateCom, 'translateMe': self.translateMe, 'utibet': self.utibet, 'volcEngine': self.volcEngine,
             'xunjie': self.xunjie, 'yandex': self.yandex, 'yeekit': self.yeekit, 'youdao': self.youdao,
         }
+        self.translators_list = ['alibaba', 'apertium', 'argos', 'baidu', 'bing', 'caiyun', 'cloudTranslation', 'deepl',
+                                 'elia', 'google',
+                                 'hujiang', 'iciba', 'iflytek', 'iflyrec', 'itranslate', 'judic', 'languageWire',
+                                 'lingvanex', 'niutrans',
+                                 'mglip', 'mirai', 'modernMt', 'myMemory', 'papago', 'qqFanyi', 'qqTranSmart',
+                                 'reverso', 'sogou', 'sysTran',
+                                 'tilde', 'translateCom', 'translateMe', 'utibet', 'volcEngine', 'yandex', 'yeekit',
+                                 'youdao']
         self.translators_pool = list(self.translators_dict.keys())
         self.not_en_langs = {'utibet': 'ti', 'mglip': 'mon'}
         self.not_zh_langs = {'languageWire': 'fr', 'tilde': 'fr', 'elia': 'fr', 'apertium': 'spa', 'judic': 'de'}
@@ -6039,7 +6047,8 @@ class TranslatorsServer:
         if not self.pre_acceleration_label and if_use_preacceleration:
             _ = self.preaccelerate()
 
-        return self.translators_dict[translator](query_text=query_text, from_language=from_language, to_language=to_language, **kwargs)
+        return self.translators_dict[translator](query_text=query_text, from_language=from_language,
+                                                 to_language=to_language, **kwargs)
 
     def translate_html(self,
                        html_text: str,
@@ -6088,7 +6097,8 @@ class TranslatorsServer:
             _ = self.preaccelerate()
 
         def _translate_text(sentence: str) -> Tuple[str, str]:
-            return sentence, self.translators_dict[translator](query_text=sentence, from_language=from_language, to_language=to_language, **kwargs)
+            return sentence, self.translators_dict[translator](query_text=sentence, from_language=from_language,
+                                                               to_language=to_language, **kwargs)
 
         pattern = re.compile('>([\\s\\S]*?)<')  # not perfect
         sentence_list = list(set(pattern.findall(html_text)))
@@ -6114,7 +6124,7 @@ class TranslatorsServer:
             if_show_time_stat=if_show_time_stat
         )
         return result
-    
+
     def get_languages(self, translator: str = 'bing'):
         language_map = self._translators_dict[translator].language_map
         if language_map:
@@ -6145,7 +6155,7 @@ class TranslatorsServer:
             self.pre_acceleration_label += 1
         return {'success': self.success_translators_pool, 'failure': self.failure_translators_pool}
 
-    def speedtest(self, **kwargs: List[str]) -> None:
+    def speedtest(self, **kwargs: dict[str, str]) -> None:
         if self.pre_acceleration_label < 1:
             raise TranslatorError('Preacceleration first.')
 

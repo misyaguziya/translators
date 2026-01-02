@@ -1,7 +1,6 @@
 __version__ = "6.0.2"
 __author__ = "UlionTse"
 
-
 from translators.server import (
     translate_text,
     translate_html,
@@ -11,6 +10,7 @@ from translators.server import (
     preaccelerate_and_speedtest,
 )
 
+import translators.server_async as server_async
 
 __all__ = (
     "__version__",
