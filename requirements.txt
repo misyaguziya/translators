@@ -1,6 +1,10 @@
-requests
-PyExecJS
 lxml
 tqdm
+exejs @ git+https://github.com/3mora2/exejs
+httpx
 pathos
+requests
+niquests
+aiohttp
+cloudscraper
 cryptography

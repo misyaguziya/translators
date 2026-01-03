@@ -33,12 +33,12 @@ body:
       label: Expected Python Version
       description: What version of python did you expect?
       options:
-        - ">=3.8 (Default)"
-        - "3.11"
-        - "3.10"
-        - "3.9"
-        - "3.8"
-        - "<3.8"
+        - ">=3.8 (default)"
+        - ">=3.9"
+        - ">=3.10"
+        - ">=3.11"
+        - ">=3.12"
+        - ">=3.13"
     validations:
       required: true
   - type: dropdown
@@ -47,10 +47,10 @@ body:
       label: Expected Runtime Environment
       description: What runtime environment(OS) did you expect?
       options:
-        - "NoArch (Default)"
-        - "Linux CentOS"
+        - "NoArch (default)"
         - "Linux Ubuntu"
-        - "Windows 10"
+        - "Linux CentOS"
+        - "Windows"
         - "MacOS"
         - "Other"
     validations:
@@ -61,7 +61,7 @@ body:
       label: Country/Region
       description: What Country(Region) did you expect? (Translation services may be different in different regions)
       placeholder: Tell us what you see!
-      value: "Qatar(example)"
+      value: "China (example)"
     validations:
       required: true
   - type: textarea
