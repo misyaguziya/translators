@@ -112,7 +112,7 @@ class Tse:
                 result = func(*args, **kwargs)
                 t2 = time.time()
                 cost_time = round((t2 - t1 - sleep_seconds), show_time_stat_precision)
-                sys.stderr.write(f'TimeSpent(function: {func.__name__[:-4]}): {cost_time}s\n')
+                # sys.stderr.write(f'TimeSpent(function: {func.__name__[:-4]}): {cost_time}s\n')
                 return result
             return func(*args, **kwargs)
         return _wrapper
@@ -377,9 +377,9 @@ class Region(Tse):
         except requests.exceptions.ConnectionError:
             raise TranslatorError('Unable to connect the Internet.\n\n')
         except:
-            warnings.warn('Unable to find server backend.\n\n')
-            region = input('Please input your server region need to visit:\neg: [Qatar, China, ...]\n\n')
-            sys.stderr.write(f'Using region {region} server backend.\n\n')
+            # warnings.warn('Unable to find server backend.\n\n')
+            region = 'EN'
+            # sys.stderr.write(f'Using region {region} server backend.\n\n')
             return 'CN' if region == 'China' else 'EN'
 
 
@@ -5788,7 +5788,7 @@ class Xunjie(Tse):
                 lang_r = self.session.post(self.detect_lang_url, headers=self.api_headers, data=pay_data, timeout=timeout)
                 from_language = lang_r.json()['getcode']
             except Exception as e:
-                print(str(e))
+                # print(str(e))
                 from_language = self.warning_auto_lang('xunjie', self.default_from_language, if_print_warning)
         from_language, to_language = self.check_language(from_language, to_language, self.language_map, output_zh=self.output_zh)
 
