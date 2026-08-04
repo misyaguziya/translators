@@ -5927,7 +5927,6 @@ class TranslatorsServer:
         self.elia = self._elia.elia_api
         self._google = GoogleV2(server_region=self.server_region)
         self.google = self._google.google_api
-        self.async_google = self._google.trans_api_async
         self._hujiang = Hujiang()
         self.hujiang = self._hujiang.hujiang_api
         self._iciba = Iciba()
