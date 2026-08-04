@@ -2221,7 +2221,9 @@ class Deepl(Tse):
         timeout = kwargs.get('timeout', None)
         proxies = kwargs.get('proxies', None)
         sleep_seconds = kwargs.get('sleep_seconds', 0)
-        http_client = kwargs.get('http_client', 'requests')
+        # 'requests' is rejected outright (429) by DeepL's Cloudflare anti-bot check;
+        # cloudscraper solves the JS challenge so the same jsonrpc scraping still works.
+        http_client = kwargs.get('http_client', 'cloudscraper')
         if_print_warning = kwargs.get('if_print_warning', True)
         is_detail_result = kwargs.get('is_detail_result', False)
         update_session_after_freq = kwargs.get('update_session_after_freq', self.default_session_freq)
